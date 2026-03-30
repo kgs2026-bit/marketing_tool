@@ -29,7 +29,7 @@ export async function middleware(request: NextRequest) {
   const protectedRoutes = ['/dashboard', '/contacts', '/templates', '/campaigns', '/analytics']
   const isProtectedRoute = protectedRoutes.some((route) => request.nextUrl.pathname.startsWith(route))
 
-  const publicRoutes = ['/login', '/register']
+  const publicRoutes = ['/auth/login', '/auth/register']
   const isPublicRoute = publicRoutes.some((route) => request.nextUrl.pathname === route)
 
   if (isProtectedRoute && !isPublicRoute) {

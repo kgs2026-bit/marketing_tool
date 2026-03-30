@@ -40,13 +40,13 @@ export default async function HomePage() {
         </div>
         <div className="flex gap-4">
           <a
-            href="/login"
+            href="/auth/login"
             className="px-4 py-2 text-indigo-900 font-medium hover:text-indigo-700 transition-colors"
           >
             Sign In
           </a>
           <a
-            href="/register"
+            href="/auth/register"
             className="px-6 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
           >
             Get Started Free
@@ -67,7 +67,7 @@ export default async function HomePage() {
           </p>
           <div className="flex gap-4 justify-center mb-16">
             <a
-              href="/register"
+              href="/auth/register"
               className="px-8 py-4 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-all shadow-lg hover:shadow-xl"
             >
               Start Free Trial
@@ -128,7 +128,7 @@ export default async function HomePage() {
             No credit card required to get started.
           </p>
           <a
-            href="/register"
+            href="/auth/register"
             className="inline-flex items-center px-8 py-4 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-all shadow-lg hover:shadow-xl"
           >
             Create Free Account

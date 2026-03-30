@@ -2,10 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/browser-client'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-
-export const dynamic = 'force-dynamic'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -14,15 +12,18 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const router = useRouter()
-  const searchParams = useSearchParams()
   const supabase = createClient()
 
   useEffect(() => {
-    const message = searchParams.get('message')
-    if (message === 'check-your-email') {
-      setSuccessMessage('Please check your email to verify your account before logging in.')
+    // Check for query parameters on mount (client-side only)
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search)
+      const message = urlParams.get('message')
+      if (message === 'check-your-email') {
+        setSuccessMessage('Please check your email to verify your account before logging in.')
+      }
     }
-  }, [searchParams])
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()

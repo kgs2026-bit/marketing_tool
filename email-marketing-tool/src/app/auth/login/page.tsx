@@ -27,7 +27,7 @@ export default function LoginPage() {
         setSuccessMessage('Please check your email to verify your account before logging in.')
       }
 
-      if (preilledEmail) {
+      if (prefilledEmail) {
         setEmail(prefilledEmail)
       }
     }
@@ -109,7 +109,10 @@ export default function LoginPage() {
               />
             </div>
             <div>
-              <label htmlFocused
+              <label htmlFor="password" className="sr-only">
+                Password
+              </label>
+              <input
                 id="password"
                 name="password"
                 type="password"

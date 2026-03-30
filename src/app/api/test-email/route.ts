@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY!)
+const resendApiKey = process.env.RESEND_API_KEY
+const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,8 +15,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (!resendApiKey) {
+      console.error('RESEND_API_KEY is not set')
+      return NextResponse.json(
+        { error: 'RESEND_API_KEY is not configured. Please set it in Vercel environment variables.' },
+        { status: 500 }
+      )
+    }
+
+    const resend = new Resend(resendApiKey)
+
     const data = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+      from: fromEmail,
       to: email,
       subject: 'Test Email from EmailFlow',
       html: `
@@ -31,6 +42,7 @@ export async function POST(request: NextRequest) {
       data
     })
   } catch (error: any) {
+    console.error('Resend error:', error)
     return NextResponse.json(
       { error: error.message || 'Failed to send test email' },
       { status: 500 }

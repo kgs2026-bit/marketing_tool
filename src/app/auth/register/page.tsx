@@ -40,7 +40,7 @@ export default function RegisterPage() {
     } else {
       // Show success message or redirect to verify email
       setError(null)
-      router.push('/dashboard?message=check-your-email')
+      router.push('/auth/login?message=check-your-email')
       router.refresh()
     }
 

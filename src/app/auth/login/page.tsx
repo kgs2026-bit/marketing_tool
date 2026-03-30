@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/browser-client'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 export default function LoginPage() {
@@ -10,8 +10,17 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
+
+  useEffect(() => {
+    const message = searchParams.get('message')
+    if (message === 'check-your-email') {
+      setSuccessMessage('Please check your email to verify your account before logging in.')
+    }
+  }, [searchParams])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -82,6 +91,12 @@ export default function LoginPage() {
               />
             </div>
           </div>
+
+          {successMessage && (
+            <div className="text-green-600 text-sm text-center bg-green-50 p-3 rounded-md">
+              {successMessage}
+            </div>
+          )}
 
           {error && (
             <div className="text-red-600 text-sm text-center bg-red-50 p-3 rounded-md">

@@ -28,7 +28,7 @@ export default function Navigation() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
-    window.location.href = '/login'
+    window.location.href = '/auth/login'
   }
 
   const navLinks = [

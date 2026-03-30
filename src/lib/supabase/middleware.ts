@@ -35,7 +35,7 @@ export async function middleware(request: NextRequest) {
   if (isProtectedRoute && !isPublicRoute) {
     if (!session) {
       const url = request.nextUrl.clone()
-      url.pathname = '/login'
+      url.pathname = '/auth/login'
       return NextResponse.redirect(url)
     }
   }

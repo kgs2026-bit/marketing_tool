@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import ContactTable from '@/components/contact-table'
 import ContactModal from '@/components/contact-modal'
+import CSVImportModal from '@/components/csv-import-modal'
 import { createClient } from '@/lib/supabase/browser-client'
 
 export default function ContactsPage() {
@@ -10,6 +11,7 @@ export default function ContactsPage() {
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingContact, setEditingContact] = useState<any>(null)
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const supabase = createClient()
 
   const fetchContacts = async () => {
@@ -77,8 +79,8 @@ export default function ContactsPage() {
       {/* Import/Export buttons */}
       <div className="bg-white p-4 rounded-lg shadow flex space-x-3">
         <button
-          onClick={() => alert('CSV import coming soon!')}
-          className="text-sm text-gray-600 hover:text-blue-600"
+          onClick={() => setIsImportModalOpen(true)}
+          className="text-sm text-gray-600 hover:text-blue-600 font-medium"
         >
           📥 Import CSV
         </button>
@@ -102,6 +104,15 @@ export default function ContactsPage() {
         onClose={handleCloseModal}
         onSave={handleSave}
         contact={editingContact}
+      />
+
+      <CSVImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onImportComplete={() => {
+          fetchContacts()
+          setIsImportModalOpen(false)
+        }}
       />
     </div>
   )

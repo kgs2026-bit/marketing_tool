@@ -20,7 +20,7 @@ interface Recipient {
   bounced_at: string | null
   bounce_reason: string | null
   contact_id: string
-  contact: Contact[] // Supabase returns array for foreign key relationships
+  contact: Contact | null // Foreign key returns single object (or null)
 }
 
 interface CampaignStats {
@@ -135,11 +135,11 @@ export default function AnalyticsPage() {
         if (!recipientsByCampaign[rec.campaign_id]) {
           recipientsByCampaign[rec.campaign_id] = []
         }
-        // Attach contact from manual map (more reliable than foreign key relationship)
+        // Try to get contact from manual map (most reliable)
         const contact = contactMap.get(rec.contact_id) || null
         const recipientWithContact: Recipient = {
           ...rec,
-          contact: contact ? [contact] : [] // Keep as array for consistency
+          contact: contact ? { ...contact } : null
         }
         recipientsByCampaign[rec.campaign_id].push(recipientWithContact)
       })
@@ -269,8 +269,8 @@ export default function AnalyticsPage() {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {recipients.map(rec => {
-                        // rec.contact is an array (from manual map) or empty array
-                        const contact = Array.isArray(rec.contact) && rec.contact.length > 0 ? rec.contact[0] : null
+                        // rec.contact is a Contact object (from foreign key) or null
+                        const contact = rec.contact
                         const fullName = contact ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim() : ''
                         return (
                           <tr key={rec.id}>

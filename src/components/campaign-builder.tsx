@@ -566,10 +566,12 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                 </label>
                 <input
                   type="datetime-local"
-                  value={formData.scheduled_at}
+                  value={formData.scheduled_at ? formatDateTimeLocal(formData.scheduled_at) : ''}
                   onChange={(e) => {
                     const value = e.target.value
-                    setFormData({ ...formData, scheduled_at: value })
+                    // Convert local datetime to UTC ISO string
+                    const utcDate = value ? new Date(value).toISOString() : ''
+                    setFormData({ ...formData, scheduled_at: utcDate })
                   }}
                   className="border border-gray-300 rounded-md px-3 py-2 text-sm"
                 />

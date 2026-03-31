@@ -384,10 +384,10 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                       className="h-4 w-4 mt-1 text-blue-600 focus:ring-blue-500"
                     />
                     <span className="ml-2 text-sm text-gray-700">
-                      <strong>Resend</strong> - Uses verified domain (fast, reliable, with analytics)
+                      <strong>Resend</strong> - Fast, reliable, with analytics
                       {formData.email_provider === 'resend' && (
                         <span className="block text-xs text-blue-600 mt-1">
-                          📧 Campaigns will be sent from: {senderName} &lt;{verifiedFromEmail}&gt;
+                          📧 Campaigns will be sent from: {senderName} &lt;{senderEmail}&gt;
                         </span>
                       )}
                     </span>

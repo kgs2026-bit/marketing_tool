@@ -281,13 +281,15 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                 <label className="block text-sm font-medium text-gray-700 mb-2">Template</label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div
-                    className={`border-2 rounded-lg p-4 cursor-pointer ${
-                      !formData.template_id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                    className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                      !formData.template_id
+                        ? 'border-blue-500 bg-blue-100 shadow-md'
+                        : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50'
                     }`}
                     onClick={() => setFormData({ ...formData, template_id: '' })}
                   >
-                    <div className="font-medium">Custom Email</div>
-                    <div className="text-sm text-gray-500">Write your own content</div>
+                    <div className="font-medium text-gray-900 text-base">Custom Email</div>
+                    <div className="text-sm text-gray-600 mt-1">Write your own content from scratch</div>
                   </div>
                   {loadingTemplates ? (
                     <div className="col-span-2 text-center py-8 text-gray-500">Loading templates...</div>
@@ -295,15 +297,15 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                     templates.map((template) => (
                       <div
                         key={template.id}
-                        className={`border-2 rounded-lg p-4 cursor-pointer ${
+                        className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
                           formData.template_id === template.id
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-gray-200 hover:border-gray-300'
+                            ? 'border-blue-500 bg-blue-100 shadow-md'
+                            : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50'
                         }`}
                         onClick={() => handleTemplateSelect(template.id)}
                       >
-                        <div className="font-medium">{template.name}</div>
-                        <div className="text-sm text-gray-500 truncate">{template.subject}</div>
+                        <div className="font-medium text-gray-900 text-base">{template.name}</div>
+                        <div className="text-sm text-gray-600 mt-1 truncate">{template.subject}</div>
                       </div>
                     ))
                   )}
@@ -352,15 +354,18 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                   ) : (
                     <div className="space-y-2">
                       {contacts.map((contact) => (
-                        <label key={contact.id} className="flex items-center space-x-3 cursor-pointer">
+                        <label
+                          key={contact.id}
+                          className="flex items-center space-x-3 cursor-pointer p-2 rounded hover:bg-gray-50 transition-colors"
+                        >
                           <input
                             type="checkbox"
                             checked={formData.recipient_ids.includes(contact.id)}
                             onChange={() => handleContactToggle(contact.id)}
                             className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                           />
-                          <span className="text-sm">
-                            {contact.first_name} {contact.last_name} - {contact.email}
+                          <span className="text-sm text-gray-900">
+                            {contact.first_name} {contact.last_name} - <span className="font-medium text-gray-700">{contact.email}</span>
                           </span>
                         </label>
                       ))}

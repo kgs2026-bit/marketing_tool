@@ -143,24 +143,24 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Name *</label>
+              <label className="block text-sm font-medium text-gray-800">Name *</label>
               <input
                 type="text"
                 required
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                className="mt-1 block w-full border border-gray-400 rounded-md shadow-sm py-3 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Subject *</label>
+              <label className="block text-sm font-medium text-gray-800">Subject *</label>
               <input
                 type="text"
                 required
                 value={formData.subject}
                 onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                 placeholder="Use {{first_name}} for personalization"
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                className="mt-1 block w-full border border-gray-400 rounded-md shadow-sm py-3 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
               />
             </div>
           </div>
@@ -195,19 +195,19 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
             </div>
             {view === 'edit' ? (
               <textarea
-                rows={10}
+                rows={12}
                 value={formData.content}
                 onChange={(e) => handleContentChange(e.target.value)}
                 placeholder="Write your email content here. Use **bold** or *italic* formatting."
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm font-mono"
+                className="mt-1 block w-full border border-gray-400 rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base font-mono leading-relaxed"
               />
             ) : (
               <textarea
-                rows={10}
+                rows={12}
                 value={formData.html_content}
                 onChange={(e) => handleHtmlChange(e.target.value)}
                 placeholder="Edit HTML directly"
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm font-mono"
+                className="mt-1 block w-full border border-gray-400 rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base font-mono leading-relaxed"
               />
             )}
           </div>

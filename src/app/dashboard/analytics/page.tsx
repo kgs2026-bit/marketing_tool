@@ -249,7 +249,8 @@ export default function AnalyticsPage() {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {recipients.map((rec: any) => {
-                        // rec.contacts is the joined contact object (or undefined)
+                        // Debug: check what rec.contacts actually is
+                        console.log('Recipient render debug:', { email: rec.email, contacts: rec.contacts })
                         const contact = rec.contacts
                         const fullName = contact ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim() : '-'
                         return (

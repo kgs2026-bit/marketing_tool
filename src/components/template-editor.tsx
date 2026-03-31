@@ -199,7 +199,7 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
                 value={formData.content}
                 onChange={(e) => handleContentChange(e.target.value)}
                 placeholder="Write your email content here. Use **bold** or *italic* formatting."
-                className="mt-1 block w-full border border-gray-400 rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base font-mono leading-relaxed"
+                className="mt-1 block w-full border border-gray-400 rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base font-mono leading-relaxed text-gray-900 bg-white"
               />
             ) : (
               <textarea
@@ -207,7 +207,7 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
                 value={formData.html_content}
                 onChange={(e) => handleHtmlChange(e.target.value)}
                 placeholder="Edit HTML directly"
-                className="mt-1 block w-full border border-gray-400 rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base font-mono leading-relaxed"
+                className="mt-1 block w-full border border-gray-400 rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base font-mono leading-relaxed text-gray-900 bg-white"
               />
             )}
           </div>

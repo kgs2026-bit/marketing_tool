@@ -95,6 +95,16 @@ export default function LoginPage() {
             </div>
           </div>
 
+          <div className="flex items-center justify-end">
+            <button
+              type="button"
+              onClick={() => router.push('/auth/forgot-password')}
+              className="text-sm text-blue-600 hover:text-blue-500"
+            >
+              Forgot your password?
+            </button>
+          </div>
+
           {successMessage && (
             <div className="text-green-600 text-sm text-center bg-green-50 p-3 rounded-md">
               {successMessage}

@@ -127,6 +127,14 @@ export default function AnalyticsPage() {
       // Build stats with recipients
       const statsWithMetrics: CampaignStats[] = campaigns.map(campaign => {
         const recips = recipientsByCampaign[campaign.id] || []
+        // Debug: check if recips have contacts
+        if (recips.length > 0) {
+          console.log('Campaign:', campaign.name, 'recipients sample:', {
+            email: recips[0].email,
+            contacts: recips[0].contacts,
+            hasContacts: !!recips[0].contacts
+          })
+        }
         const total_sent = recips.length
         const delivered = recips.filter(r => r.status === 'delivered').length
         const opened = recips.filter(r => r.status === 'opened').length

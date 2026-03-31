@@ -9,10 +9,10 @@ export async function GET(
   const supabase = await createClientAction()
 
   try {
-    // Find the tracking link
+    // Find the tracking link with current click count
     const { data: link, error: linkError } = await supabase
       .from('tracking_links')
-      .select('id, original_url, campaign_recipient_id')
+      .select('id, original_url, campaign_recipient_id, click_count')
       .eq('tracking_id', trackingId)
       .single()
 
@@ -20,11 +20,11 @@ export async function GET(
       return NextResponse.json({ error: 'Link not found' }, { status: 404 })
     }
 
-    // Update click count and timestamp
+    // Update click count (increment) and timestamp
     await supabase
       .from('tracking_links')
       .update({
-        click_count: supabase.raw('click_count + 1'),
+        click_count: (link.click_count || 0) + 1,
         clicked_at: new Date().toISOString(),
       })
       .eq('id', link.id)

@@ -19,7 +19,7 @@ interface Recipient {
   clicked_at: string | null
   bounced_at: string | null
   bounce_reason: string | null
-  contacts: Contact | null
+  contacts: Contact[] // Note: Supabase returns array for embedded objects
 }
 
 interface CampaignStats {
@@ -231,7 +231,8 @@ export default function AnalyticsPage() {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {recipients.map(rec => {
-                        const fullName = rec.contacts ? `${rec.contacts.first_name || ''} ${rec.contacts.last_name || ''}`.trim() : ''
+                        const contact = rec.contacts[0] || null
+                        const fullName = contact ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim() : ''
                         return (
                           <tr key={rec.id}>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">

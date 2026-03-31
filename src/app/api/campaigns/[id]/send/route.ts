@@ -174,19 +174,9 @@ export async function POST(
         personalizedContent = personalizedContent.replace(/\{\{company\}\}/g, contact?.company || '')
         personalizedContent = personalizedContent.replace(/\{\{unsubscribe_link\}\}/g, `${appUrl}/api/unsubscribe/${recipient.id}`)
 
-        // Add open tracking pixel
-        const trackingPixel = `<img src="${appUrl}/api/track/open/${recipient.id}" width="1" height="1" alt="" style="display:none;" />`
-        if (personalizedContent.includes('</body>')) {
-          personalizedContent = personalizedContent.replace('</body>', `${trackingPixel}</body>`)
-        } else if (personalizedContent.includes('</html>')) {
-          personalizedContent = personalizedContent.replace('</html>', `${trackingPixel}</html>`)
-        } else {
-          personalizedContent += trackingPixel
-        }
-
         // Add click tracking: rewrite all http/https links
         const trackingLinksToCreate: any[] = []
-        personalizedContent = personalizedContent.replace(/href\s*=\s*["']([^"']+)["']/gi, (match, url) => {
+        personalizedContent = personalizedContent.replace(/href\s*=\s*["']([^"']+)["']/gi, (match: string, url: string) => {
           // Skip non-http(s) URLs (like mailto, tel, #, javascript) and URLs already tracked
           if (!url.startsWith('http')) {
             return match

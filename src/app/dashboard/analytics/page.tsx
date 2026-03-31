@@ -35,7 +35,7 @@ interface CampaignStats {
   opened: number
   clicked: number
   bounced: number
-  recipients: Recipient[]
+  recipients: any[] // Raw recipient data with contacts joined
 }
 
 const getStatusBadge = (status: string) => {
@@ -115,28 +115,13 @@ export default function AnalyticsPage() {
       }
       console.log('All recipientsData count:', recipientsData?.length)
 
-      // Group recipients by campaign_id - contacts are already joined in the query
-      const recipientsByCampaign: Record<string, Recipient[]> = {}
+      // Group recipients by campaign_id - use raw data as-is
+      const recipientsByCampaign: Record<string, any[]> = {}
       ;(recipientsData || []).forEach(rec => {
         if (!recipientsByCampaign[rec.campaign_id]) {
           recipientsByCampaign[rec.campaign_id] = []
         }
-        // rec.contacts is the joined contact object (handle array or object)
-        let contactData: Contact | null = null
-        if (rec.contacts) {
-          // Supabase may return as array or object depending on relationship
-          if (Array.isArray(rec.contacts)) {
-            contactData = rec.contacts[0] || null
-          } else {
-            contactData = rec.contacts as Contact
-          }
-        }
-
-        const recipientWithContact: Recipient = {
-          ...rec,
-          contacts: contactData
-        }
-        recipientsByCampaign[rec.campaign_id].push(recipientWithContact)
+        recipientsByCampaign[rec.campaign_id].push(rec)
       })
 
       // Build stats with recipients
@@ -263,14 +248,14 @@ export default function AnalyticsPage() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {recipients.map(rec => {
-                        // rec.contacts is the Contact object from the foreign key relationship
+                      {recipients.map((rec: any) => {
+                        // rec.contacts is the joined contact object (or undefined)
                         const contact = rec.contacts
-                        const fullName = contact ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim() : ''
+                        const fullName = contact ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim() : '-'
                         return (
                           <tr key={rec.id}>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                              {fullName || '-'}
+                              {fullName}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{rec.email}</td>
                             <td className="px-4 py-3 whitespace-nowrap">

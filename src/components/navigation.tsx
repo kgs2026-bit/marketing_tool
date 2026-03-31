@@ -37,6 +37,7 @@ export default function Navigation() {
     { href: '/dashboard/templates', label: 'Templates', icon: '📧' },
     { href: '/dashboard/campaigns', label: 'Campaigns', icon: '🚀' },
     { href: '/dashboard/analytics', label: 'Analytics', icon: '📈' },
+    { href: '/dashboard/settings', label: 'Settings', icon: '⚙️' },
   ]
 
   if (loading) {

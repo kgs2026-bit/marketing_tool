@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClientAction } from '@/lib/supabase/server'
 import { Resend } from 'resend'
+import nodemailer from 'nodemailer'
 
 const resend = new Resend(process.env.RESEND_API_KEY!)
 
@@ -17,7 +18,7 @@ export async function POST(
   }
 
   try {
-    // Get campaign with recipients
+    // Get campaign with recipients and email provider
     const { data: campaign, error: campaignError } = await supabase
       .from('campaigns')
       .select(`
@@ -33,7 +34,9 @@ export async function POST(
       return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
     }
 
-    // If no recipients, we need to create them from recipient_list (contact IDs)
+    const provider = campaign.email_provider || 'resend'
+
+    // If no recipients, create them from recipient_list (contact IDs)
     if (!campaign.campaign_recipients || campaign.campaign_recipients.length === 0) {
       const contactIds = campaign.recipient_list
 
@@ -41,7 +44,6 @@ export async function POST(
         return NextResponse.json({ error: 'No recipients specified' }, { status: 400 })
       }
 
-      // Fetch contact details to get emails
       const { data: contacts, error: contactsError } = await supabase
         .from('contacts')
         .select('id, email')
@@ -52,7 +54,6 @@ export async function POST(
         return NextResponse.json({ error: 'Failed to fetch contacts' }, { status: 500 })
       }
 
-      // Create campaign_recipient records with actual emails
       const recipientData = contacts.map((contact: any) => ({
         campaign_id: campaign.id,
         contact_id: contact.id,
@@ -66,7 +67,6 @@ export async function POST(
 
       if (insertError) {
         console.error('Error creating recipients:', insertError)
-        // Continue anyway - we'll fetch fresh in next step
       }
     }
 
@@ -93,27 +93,20 @@ export async function POST(
     // Get app URL for tracking
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
-    // Use verified domain as sender, user's email as reply-to
-    // This allows sending from a verified domain even if users have unverified emails (like Gmail)
-    const verifiedFromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
-    const userEmail = user.email || ''
+    // Get sender name
     const senderName = user.user_metadata?.full_name ||
                        user.user_metadata?.name ||
                        user.email?.split('@')[0] ||
                        'User'
 
-    // Send emails via Resend
+    // Send emails based on provider
     const sendPromises = freshCampaign.campaign_recipients.map(async (recipient: any) => {
       try {
-        // Generate tracking pixels and click tracking links
-        // For simplicity, we'll embed tracking pixel and convert links
+        // Generate tracking and replace variables
         let htmlContent = campaign.templates?.html_content || campaign.html_content || ''
-
-        // Add tracking pixel
         const trackingPixel = `<img src="${appUrl}/api/track/open/${recipient.id}" width="1" height="1" alt="" style="display:none;" />`
         htmlContent = htmlContent.replace('</body>', `${trackingPixel}</body>`)
 
-        // Replace variables
         const { data: contact } = await supabase
           .from('contacts')
           .select('*')
@@ -129,38 +122,96 @@ export async function POST(
 
         const subject = (campaign.templates?.subject || campaign.subject || '').replace(/\{\{first_name\}\}/g, contact?.first_name || '')
 
-        // Send email using verified domain as sender, user's email as reply-to
-        const { data, error } = await resend.emails.send({
-          from: `${senderName} <${verifiedFromEmail}>`,
-          to: [recipient.email],
-          subject,
-          html: personalizedContent,
-          replyTo: userEmail, // Replies go to user's actual email (Gmail, etc.)
-          headers: {
-            'X-Campaign-ID': campaign.id,
-            'X-Recipient-ID': recipient.id,
-          },
-        })
+        if (provider === 'resend') {
+          // Use Resend API
+          const verifiedFromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
+          const userEmail = user.email || ''
 
-        if (error) {
-          throw error
-        }
-
-        // Update recipient status
-        await supabase
-          .from('campaign_recipients')
-          .update({
-            status: 'delivered',
-            sent_at: new Date().toISOString(),
-            delivered_at: new Date().toISOString(),
-            message_id: data.id,
+          const { data, error } = await resend.emails.send({
+            from: `${senderName} <${verifiedFromEmail}>`,
+            to: [recipient.email],
+            subject,
+            html: personalizedContent,
+            replyTo: userEmail,
+            headers: {
+              'X-Campaign-ID': campaign.id,
+              'X-Recipient-ID': recipient.id,
+            },
           })
-          .eq('id', recipient.id)
 
-        return { success: true, recipientId: recipient.id, messageId: data.id }
+          if (error) throw error
+
+          // Update recipient
+          await supabase
+            .from('campaign_recipients')
+            .update({
+              status: 'delivered',
+              sent_at: new Date().toISOString(),
+              delivered_at: new Date().toISOString(),
+              message_id: data.id,
+            })
+            .eq('id', recipient.id)
+
+          return { success: true, recipientId: recipient.id, messageId: data.id }
+
+        } else if (provider === 'gmail') {
+          // Use Gmail SMTP
+          const { data: emailConfig } = await supabase
+            .from('user_email_configs')
+            .select('smtp_username, smtp_password')
+            .eq('user_id', user.id)
+            .eq('provider', 'gmail')
+            .single()
+
+          if (!emailConfig || !emailConfig.smtp_username || !emailConfig.smtp_password) {
+            throw new Error('Gmail not configured. Please set up Gmail in Settings.')
+          }
+
+          // Create SMTP transporter
+          const transporter = nodemailer.createTransport({
+            host: 'smtp.gmail.com',
+            port: 465,
+            secure: true,
+            auth: {
+              user: emailConfig.smtp_username,
+              pass: emailConfig.smtp_password,
+            },
+          })
+
+          // Send email
+          const { messageId } = await new Promise<{ messageId: string }>((resolve, reject) => {
+            transporter.sendMail({
+              from: emailConfig.smtp_username, // Must match auth user
+              to: recipient.email,
+              subject,
+              html: personalizedContent,
+              headers: {
+                'X-Campaign-ID': campaign.id,
+                'X-Recipient-ID': recipient.id,
+              },
+            }, (error, info) => {
+              if (error) reject(error)
+              else resolve(info as { messageId: string })
+            })
+          })
+
+          // Update recipient
+          await supabase
+            .from('campaign_recipients')
+            .update({
+              status: 'delivered',
+              sent_at: new Date().toISOString(),
+              delivered_at: new Date().toISOString(),
+              message_id: messageId,
+            })
+            .eq('id', recipient.id)
+
+          return { success: true, recipientId: recipient.id, messageId }
+        } else {
+          throw new Error(`Unknown provider: ${provider}`)
+        }
       } catch (err: any) {
         console.error(`Failed to send to ${recipient.email}:`, err)
-        // Update recipient as bounced
         await supabase
           .from('campaign_recipients')
           .update({
@@ -177,12 +228,10 @@ export async function POST(
     const successCount = results.filter((r) => r.success).length
     const failureCount = results.length - successCount
 
-    // Update campaign status
-    const newStatus = failureCount > 0 ? 'sent' : 'sent' // always sent, but we could have partial failures
     await supabase
       .from('campaigns')
       .update({
-        status: newStatus,
+        status: 'sent',
         sent_at: new Date().toISOString(),
       })
       .eq('id', campaign.id)

@@ -29,6 +29,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
     html_content: '',
     recipient_ids: [] as string[],
     scheduled_at: '',
+    email_provider: 'resend' as 'resend' | 'gmail',
   })
 
   useEffect(() => {
@@ -43,6 +44,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
           html_content: campaign.html_content || '',
           recipient_ids: campaign.recipient_list || [],
           scheduled_at: campaign.scheduled_at || '',
+          email_provider: campaign.email_provider || 'resend',
         })
         setStep(3) // go to review step
       } else {
@@ -54,6 +56,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
           html_content: '',
           recipient_ids: [],
           scheduled_at: '',
+          email_provider: 'resend',
         })
         setStep(1)
       }
@@ -162,6 +165,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
         recipient_list: formData.recipient_ids,
         scheduled_at: formData.scheduled_at || null,
         status: formData.scheduled_at ? 'scheduled' : 'draft',
+        email_provider: formData.email_provider,
       }
 
       if (campaign) {
@@ -365,6 +369,49 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                 </div>
               </div>
 
+              {/* Email Provider Selection */}
+              <div className="border-t pt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email Provider
+                </label>
+                <div className="space-y-2">
+                  <label className="flex items-start">
+                    <input
+                      type="radio"
+                      value="resend"
+                      checked={formData.email_provider === 'resend'}
+                      onChange={(e) => setFormData({ ...formData, email_provider: e.target.value as 'resend' })}
+                      className="h-4 w-4 mt-1 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">
+                      <strong>Resend</strong> - Uses verified domain (fast, reliable, with analytics)
+                      {formData.email_provider === 'resend' && (
+                        <span className="block text-xs text-blue-600 mt-1">
+                          📧 Campaigns will be sent from: {senderName} &lt;{verifiedFromEmail}&gt;
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                  <label className="flex items-start">
+                    <input
+                      type="radio"
+                      value="gmail"
+                      checked={formData.email_provider === 'gmail'}
+                      onChange={(e) => setFormData({ ...formData, email_provider: e.target.value as 'gmail' })}
+                      className="h-4 w-4 mt-1 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">
+                      <strong>Gmail SMTP</strong> - Send from your personal Gmail (max 500/day)
+                      {formData.email_provider === 'gmail' && (
+                        <span className="block text-xs text-orange-600 mt-1">
+                          ⚠️ Make sure you've configured your Gmail settings in Dashboard → Settings
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                </div>
+              </div>
+
               <div className="flex justify-between mt-6">
                 <button
                   type="button"
@@ -408,6 +455,10 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                   <div>
                     <dt className="text-sm font-medium text-gray-500">Reply-To</dt>
                     <dd className="text-sm text-gray-900">{senderEmail}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Email Provider</dt>
+                    <dd className="text-sm text-gray-900 capitalize">{formData.email_provider}</dd>
                   </div>
                   <div>
                     <dt className="text-sm font-medium text-gray-500">Recipients</dt>

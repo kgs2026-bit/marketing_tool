@@ -45,6 +45,7 @@ CREATE TABLE campaigns (
   scheduled_at TIMESTAMPTZ,
   sent_at TIMESTAMPTZ,
   status VARCHAR(50) DEFAULT 'draft' CHECK (status IN ('draft', 'scheduled', 'sending', 'sent', 'cancelled')),
+  email_provider VARCHAR(50) DEFAULT 'resend' CHECK (email_provider IN ('resend', 'gmail')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -178,4 +179,36 @@ CREATE TRIGGER update_templates_updated_at BEFORE UPDATE ON templates
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_campaigns_updated_at BEFORE UPDATE ON campaigns
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- User Email Provider Configuration (for Gmail/Resend selection)
+CREATE TABLE user_email_configs (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  provider VARCHAR(50) NOT NULL CHECK (provider IN ('resend', 'gmail')),
+  -- For Resend: uses global API key, no per-user config needed
+  -- For Gmail: store SMTP credentials (would need encryption in production)
+  smtp_host VARCHAR(255) DEFAULT 'smtp.gmail.com',
+  smtp_port INTEGER DEFAULT 465,
+  smtp_username TEXT,
+  smtp_password TEXT, -- NOTE: Should be encrypted using Supabase Vault or similar
+  smtp_secure BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, provider)
+);
+
+ALTER TABLE user_email_configs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view own email configs" ON user_email_configs
+  FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own email configs" ON user_email_configs
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own email configs" ON user_email_configs
+  FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own email configs" ON user_email_configs
+  FOR DELETE USING (auth.uid() = user_id);
+
+CREATE INDEX idx_user_email_configs_user_id ON user_email_configs(user_id);
+
+CREATE TRIGGER update_user_email_configs_updated_at BEFORE UPDATE ON user_email_configs
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

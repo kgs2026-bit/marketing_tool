@@ -57,6 +57,11 @@ export async function PUT(
   const { id } = await params
   const body = await request.json()
 
+  // Validate email_provider if provided
+  if (body.email_provider && !['resend', 'gmail'].includes(body.email_provider)) {
+    return NextResponse.json({ error: 'Invalid email provider' }, { status: 400 })
+  }
+
   const { data, error } = await supabase
     .from('campaigns')
     .update({
@@ -68,6 +73,7 @@ export async function PUT(
       recipient_list: body.recipient_list,
       scheduled_at: body.scheduled_at,
       status: body.status,
+      email_provider: body.email_provider,
     })
     .eq('id', id)
     .eq('user_id', user.id)

@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
       recipient_list: body.recipient_list || [],
       scheduled_at: body.scheduled_at || null,
       status: body.scheduled_at ? 'scheduled' : 'draft',
+      email_provider: body.email_provider || 'resend',
     })
     .select()
     .single()

@@ -95,7 +95,7 @@ export default function AnalyticsPage() {
           bounced_at,
           bounce_reason,
           contact_id,
-          contact:contacts (first_name, last_name, company)
+          contact (first_name, last_name, company)
         `)
         .in('campaign_id', campaignIds)
 
@@ -103,18 +103,37 @@ export default function AnalyticsPage() {
         console.error('Error fetching recipients:', recipientsError)
       }
 
-      // Debug: check if contact data is coming through
-      if (recipientsData && recipientsData.length > 0) {
-        console.log('Sample recipient data:', recipientsData[0])
-      }
+      // Debug: check what we got
+      console.log('Raw recipientsData:', recipientsData?.[0])
 
-      // Group recipients by campaign_id
+      // Also fetch contacts separately and build map manually as fallback
+      const contactIds = recipientsData?.map(r => r.contact_id).filter(Boolean) || []
+      const { data: contactsData } = await supabase
+        .from('contacts')
+        .select('id, first_name, last_name, company')
+        .in('id', contactIds)
+
+      const contactMap = new Map()
+      ;(contactsData || []).forEach(contact => {
+        contactMap.set(contact.id, contact)
+      })
+
+      // Log for debugging
+      console.log('Contacts map:', contactMap)
+
+      // Group recipients by campaign_id and attach contact data from manual map
       const recipientsByCampaign: Record<string, Recipient[]> = {}
       ;(recipientsData || []).forEach(rec => {
         if (!recipientsByCampaign[rec.campaign_id]) {
           recipientsByCampaign[rec.campaign_id] = []
         }
-        recipientsByCampaign[rec.campaign_id].push(rec as Recipient)
+        // Attach contact from manual map (more reliable than foreign key relationship)
+        const contact = contactMap.get(rec.contact_id) || null
+        const recipientWithContact: Recipient = {
+          ...rec,
+          contact: contact ? [contact] : [] // Keep as array for consistency
+        }
+        recipientsByCampaign[rec.campaign_id].push(recipientWithContact)
       })
 
       // Build stats with recipients
@@ -242,7 +261,8 @@ export default function AnalyticsPage() {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {recipients.map(rec => {
-                        const contact = rec.contact && rec.contact.length > 0 ? rec.contact[0] : null
+                        // rec.contact is an array (from manual map) or empty array
+                        const contact = Array.isArray(rec.contact) && rec.contact.length > 0 ? rec.contact[0] : null
                         const fullName = contact ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim() : ''
                         return (
                           <tr key={rec.id}>

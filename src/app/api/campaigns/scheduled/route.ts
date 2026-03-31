@@ -19,20 +19,35 @@ export async function GET(request: NextRequest) {
     console.log(`[Scheduled] Cron triggered at ${now}`)
 
     // Find campaigns that are scheduled and scheduled_at <= now
+    const { data: allScheduled, error: checkError } = await supabase
+      .from('campaigns')
+      .select('id, name, scheduled_at, status')
+      .eq('status', 'scheduled')
+
+    if (checkError) throw checkError
+
+    console.log('[Scheduled] All scheduled campaigns in DB:', allScheduled?.map(c => ({
+      id: c.id,
+      name: c.name,
+      scheduled_at: c.scheduled_at,
+      scheduled_at_type: typeof c.scheduled_at,
+      now: now,
+    })))
+
     const { data: dueCampaigns, error } = await supabase
       .from('campaigns')
-      .select('id, user_id, scheduled_at')
+      .select('id, user_id, scheduled_at, name')
       .eq('status', 'scheduled')
       .lte('scheduled_at', now)
 
     if (error) throw error
 
     if (!dueCampaigns || dueCampaigns.length === 0) {
-      console.log('[Scheduled] No campaigns due for sending')
+      console.log('[Scheduled] No campaigns due for sending (dueCampaigns empty)')
       return NextResponse.json({ message: 'No scheduled campaigns to send' })
     }
 
-    console.log(`[Scheduled] Found ${dueCampaigns.length} campaign(s) due:`, dueCampaigns.map(c => ({ id: c.id, scheduled_at: c.scheduled_at })))
+    console.log(`[Scheduled] Found ${dueCampaigns.length} campaign(s) due:`, dueCampaigns.map(c => ({ id: c.id, name: c.name, scheduled_at: c.scheduled_at })))
 
     // Mark all due campaigns as 'sending' to prevent duplicate sends
     const campaignIds = dueCampaigns.map(c => c.id)

@@ -20,7 +20,7 @@ interface Recipient {
   bounced_at: string | null
   bounce_reason: string | null
   contact_id: string
-  contact: Contact | null // Foreign key returns single object (or null)
+  contacts: Contact | null // Joined contact data (table name is 'contacts')
 }
 
 interface CampaignStats {
@@ -82,6 +82,7 @@ export default function AnalyticsPage() {
 
       // Fetch all campaign recipients for these campaigns in one query
       const campaignIds = campaigns.map(c => c.id)
+      // Select with correct foreign key relationship: 'contacts' (table name) not 'contact'
       const { data: recipientsData, error: recipientsError } = await supabase
         .from('campaign_recipients')
         .select(`
@@ -95,7 +96,7 @@ export default function AnalyticsPage() {
           bounced_at,
           bounce_reason,
           contact_id,
-          contact (first_name, last_name, company)
+          contacts (first_name, last_name, company)
         `)
         .in('campaign_id', campaignIds)
 
@@ -109,37 +110,31 @@ export default function AnalyticsPage() {
           id: recipientsData[0].id,
           email: recipientsData[0].email,
           contact_id: recipientsData[0].contact_id,
-          contact: recipientsData[0].contact
+          contacts: recipientsData[0].contacts
         })
       }
       console.log('All recipientsData count:', recipientsData?.length)
 
-      // Also fetch contacts separately and build map manually as fallback
-      const contactIds = recipientsData?.map(r => r.contact_id).filter(Boolean) || []
-      const { data: contactsData } = await supabase
-        .from('contacts')
-        .select('id, first_name, last_name, company')
-        .in('id', contactIds)
-
-      const contactMap = new Map()
-      ;(contactsData || []).forEach(contact => {
-        contactMap.set(contact.id, contact)
-      })
-
-      // Log for debugging
-      console.log('Contacts map:', contactMap)
-
-      // Group recipients by campaign_id and attach contact data from manual map
+      // Group recipients by campaign_id - contacts are already joined in the query
       const recipientsByCampaign: Record<string, Recipient[]> = {}
       ;(recipientsData || []).forEach(rec => {
         if (!recipientsByCampaign[rec.campaign_id]) {
           recipientsByCampaign[rec.campaign_id] = []
         }
-        // Try to get contact from manual map (most reliable)
-        const contact = contactMap.get(rec.contact_id) || null
+        // rec.contacts is the joined contact object (handle array or object)
+        let contactData: Contact | null = null
+        if (rec.contacts) {
+          // Supabase may return as array or object depending on relationship
+          if (Array.isArray(rec.contacts)) {
+            contactData = rec.contacts[0] || null
+          } else {
+            contactData = rec.contacts as Contact
+          }
+        }
+
         const recipientWithContact: Recipient = {
           ...rec,
-          contact: contact ? { ...contact } : null
+          contacts: contactData
         }
         recipientsByCampaign[rec.campaign_id].push(recipientWithContact)
       })
@@ -269,8 +264,8 @@ export default function AnalyticsPage() {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {recipients.map(rec => {
-                        // rec.contact is a Contact object (from foreign key) or null
-                        const contact = rec.contact
+                        // rec.contacts is the Contact object from the foreign key relationship
+                        const contact = rec.contacts
                         const fullName = contact ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim() : ''
                         return (
                           <tr key={rec.id}>

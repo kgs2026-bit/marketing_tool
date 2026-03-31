@@ -123,16 +123,15 @@ export async function POST(
         const subject = (campaign.templates?.subject || campaign.subject || '').replace(/\{\{first_name\}\}/g, contact?.first_name || '')
 
         if (provider === 'resend') {
-          // Use Resend API
-          const verifiedFromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
+          // Use Resend API - send from user's email directly
           const userEmail = user.email || ''
+          const fromAddress = userEmail ? `${senderName} <${userEmail}>` : `${senderName} <${process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'}>`
 
           const { data, error } = await resend.emails.send({
-            from: `${senderName} <${verifiedFromEmail}>`,
+            from: fromAddress,
             to: [recipient.email],
             subject,
             html: personalizedContent,
-            replyTo: userEmail,
             headers: {
               'X-Campaign-ID': campaign.id,
               'X-Recipient-ID': recipient.id,

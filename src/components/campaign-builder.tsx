@@ -447,19 +447,24 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                     <dd className="text-sm text-gray-900">{formData.subject}</dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">From (Verified Domain)</dt>
+                    <dt className="text-sm font-medium text-gray-500">From</dt>
                     <dd className="text-sm text-gray-900">
-                      {senderName} &lt;{verifiedFromEmail}&gt;
+                      {senderName} &lt;{senderEmail}&gt;
                     </dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Reply-To</dt>
-                    <dd className="text-sm text-gray-900">{senderEmail}</dd>
                   </div>
                   <div>
                     <dt className="text-sm font-medium text-gray-500">Email Provider</dt>
                     <dd className="text-sm text-gray-900 capitalize">{formData.email_provider}</dd>
                   </div>
+                  {formData.email_provider === 'resend' && (
+                    <div className="col-span-2">
+                      <dt className="text-sm font-medium text-gray-500">Note</dt>
+                      <dd className="text-sm text-amber-600">
+                        ⚠️ Your domain ({senderEmail.split('@')[1]}) must be verified in Resend.
+                        If not, emails will bounce. Use Gmail provider if you want to send from @gmail.com.
+                      </dd>
+                    </div>
+                  )}
                   <div>
                     <dt className="text-sm font-medium text-gray-500">Recipients</dt>
                     <dd className="text-sm text-gray-900">{formData.recipient_ids.length} contacts</dd>

@@ -33,24 +33,32 @@ export async function POST(
       return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
     }
 
-    // If no recipients, we need to create them from recipient_list or contacts
+    // If no recipients, we need to create them from recipient_list (contact IDs)
     if (!campaign.campaign_recipients || campaign.campaign_recipients.length === 0) {
-      // Recipient list could be a list of contact IDs or directly email objects
-      const recipients = campaign.recipient_list
+      const contactIds = campaign.recipient_list
 
-      if (!recipients || recipients.length === 0) {
+      if (!contactIds || contactIds.length === 0) {
         return NextResponse.json({ error: 'No recipients specified' }, { status: 400 })
       }
 
-      // Create campaign_recipient records
-      const recipientData = recipients.map((recip: any) => {
-        const email = typeof recip === 'string' ? recip : recip.email
-        return {
-          campaign_id: campaign.id,
-          email,
-          status: 'pending',
-        }
-      })
+      // Fetch contact details to get emails
+      const { data: contacts, error: contactsError } = await supabase
+        .from('contacts')
+        .select('id, email')
+        .in('id', contactIds)
+
+      if (contactsError) {
+        console.error('Error fetching contacts:', contactsError)
+        return NextResponse.json({ error: 'Failed to fetch contacts' }, { status: 500 })
+      }
+
+      // Create campaign_recipient records with actual emails
+      const recipientData = contacts.map((contact: any) => ({
+        campaign_id: campaign.id,
+        contact_id: contact.id,
+        email: contact.email,
+        status: 'pending',
+      }))
 
       const { error: insertError } = await supabase
         .from('campaign_recipients')
@@ -58,7 +66,7 @@ export async function POST(
 
       if (insertError) {
         console.error('Error creating recipients:', insertError)
-        // Continue anyway - we'll fetch contacts fresh
+        // Continue anyway - we'll fetch fresh in next step
       }
     }
 

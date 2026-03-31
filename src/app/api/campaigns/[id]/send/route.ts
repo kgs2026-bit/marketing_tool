@@ -130,17 +130,6 @@ export async function POST(
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
     // Get sender name - use campaign's custom sender_name if set, otherwise fall back to user's name
-    // For cron calls, we need to fetch user data separately
-    let userEmail = user.email
-    let userMetadata = user.user_metadata
-
-    if (isCronCall) {
-      // Fetch user email and metadata
-      const { data: userData } = await supabase
-        .from('users') // Note: can't query profiles directly without auth
-      // For cron, we already fetched authUser and set user properly above
-    }
-
     const senderName = campaign.sender_name ||
                        user.user_metadata?.full_name ||
                        user.user_metadata?.name ||

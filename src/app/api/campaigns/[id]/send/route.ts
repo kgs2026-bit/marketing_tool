@@ -85,8 +85,10 @@ export async function POST(
     // Get app URL for tracking
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
-    // Use the logged-in user's email as sender
-    const senderEmail = user.email || process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
+    // Use verified domain as sender, user's email as reply-to
+    // This allows sending from a verified domain even if users have unverified emails (like Gmail)
+    const verifiedFromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
+    const userEmail = user.email || ''
     const senderName = user.user_metadata?.full_name ||
                        user.user_metadata?.name ||
                        user.email?.split('@')[0] ||
@@ -119,12 +121,13 @@ export async function POST(
 
         const subject = (campaign.templates?.subject || campaign.subject || '').replace(/\{\{first_name\}\}/g, contact?.first_name || '')
 
-        // Send email using campaign owner's email as sender
+        // Send email using verified domain as sender, user's email as reply-to
         const { data, error } = await resend.emails.send({
-          from: `${senderName} <${senderEmail}>`,
+          from: `${senderName} <${verifiedFromEmail}>`,
           to: [recipient.email],
           subject,
           html: personalizedContent,
+          replyTo: userEmail, // Replies go to user's actual email (Gmail, etc.)
           headers: {
             'X-Campaign-ID': campaign.id,
             'X-Recipient-ID': recipient.id,

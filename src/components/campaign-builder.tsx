@@ -76,6 +76,9 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
     }
   }
 
+  // Get the verified from email from env (available on client due to NEXT_PUBLIC_)
+  const verifiedFromEmail = process.env.NEXT_PUBLIC_RESEND_FROM_EMAIL || 'onboarding@resend.dev'
+
   const loadTemplates = async () => {
     setLoadingTemplates(true)
     try {
@@ -397,8 +400,14 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                     <dd className="text-sm text-gray-900">{formData.subject}</dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">From</dt>
-                    <dd className="text-sm text-gray-900">{senderName} &lt;{senderEmail}&gt;</dd>
+                    <dt className="text-sm font-medium text-gray-500">From (Verified Domain)</dt>
+                    <dd className="text-sm text-gray-900">
+                      {senderName} &lt;{verifiedFromEmail}&gt;
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Reply-To</dt>
+                    <dd className="text-sm text-gray-900">{senderEmail}</dd>
                   </div>
                   <div>
                     <dt className="text-sm font-medium text-gray-500">Recipients</dt>

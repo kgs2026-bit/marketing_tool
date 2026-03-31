@@ -19,6 +19,8 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
   const [loadingContacts, setLoadingContacts] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [senderEmail, setSenderEmail] = useState<string>('')
+  const [senderName, setSenderName] = useState<string>('')
   const [formData, setFormData] = useState({
     name: '',
     template_id: '',
@@ -57,8 +59,22 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
       }
       loadTemplates()
       loadContacts()
+      loadSenderInfo()
     }
   }, [isOpen, campaign])
+
+  const loadSenderInfo = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        setSenderEmail(user.email || '')
+        const name = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User'
+        setSenderName(name)
+      }
+    } catch (error) {
+      console.error('Error loading sender info:', error)
+    }
+  }
 
   const loadTemplates = async () => {
     setLoadingTemplates(true)
@@ -379,6 +395,10 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                   <div>
                     <dt className="text-sm font-medium text-gray-500">Subject</dt>
                     <dd className="text-sm text-gray-900">{formData.subject}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">From</dt>
+                    <dd className="text-sm text-gray-900">{senderName} &lt;{senderEmail}&gt;</dd>
                   </div>
                   <div>
                     <dt className="text-sm font-medium text-gray-500">Recipients</dt>

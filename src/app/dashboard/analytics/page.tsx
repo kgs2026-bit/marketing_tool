@@ -104,7 +104,15 @@ export default function AnalyticsPage() {
       }
 
       // Debug: check what we got
-      console.log('Raw recipientsData:', recipientsData?.[0])
+      if (recipientsData && recipientsData.length > 0) {
+        console.log('Raw recipientsData[0]:', {
+          id: recipientsData[0].id,
+          email: recipientsData[0].email,
+          contact_id: recipientsData[0].contact_id,
+          contact: recipientsData[0].contact
+        })
+      }
+      console.log('All recipientsData count:', recipientsData?.length)
 
       // Also fetch contacts separately and build map manually as fallback
       const contactIds = recipientsData?.map(r => r.contact_id).filter(Boolean) || []

@@ -85,6 +85,7 @@ export async function POST(
         .from('contacts')
         .select('id, email')
         .in('id', contactIds)
+        .neq('status', 'unsubscribed')  // Exclude unsubscribed contacts
 
       if (contactsError) {
         console.error('Error fetching contacts:', contactsError)
@@ -107,18 +108,37 @@ export async function POST(
       }
     }
 
-    // Re-fetch campaign with fresh recipients
+    // Re-fetch campaign with fresh recipients (include contact status to filter unsubscribed)
     const { data: freshCampaign } = await supabase
       .from('campaigns')
       .select(`
         *,
-        campaign_recipients (id, email)
+        campaign_recipients (
+          id,
+          email,
+          contact_id,
+          contacts (id, email, status)
+        )
       `)
       .eq('id', id)
       .single()
 
     if (!freshCampaign || !freshCampaign.campaign_recipients) {
       return NextResponse.json({ error: 'No recipients found' }, { status: 400 })
+    }
+
+    // Filter out unsubscribed contacts
+    const recipientsToSend = (freshCampaign.campaign_recipients as any[])
+      .filter((recipient: any) => {
+        const contact = recipient.contacts as any
+        return contact?.status !== 'unsubscribed'
+      })
+
+    if (recipientsToSend.length === 0) {
+      return NextResponse.json(
+        { error: 'All recipients have unsubscribed. No emails to send.' },
+        { status: 400 }
+      )
     }
 
     // Update campaign status to sending
@@ -141,7 +161,7 @@ export async function POST(
     const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
     // Send emails based on provider with delays
-    const sendPromises = freshCampaign.campaign_recipients.map(async (recipient: any, index: number) => {
+    const sendPromises = recipientsToSend.map(async (recipient: any, index: number) => {
       // Add random 3-5 minute delay before each email (except first)
       if (index > 0) {
         const delayMs = Math.random() * (5 * 60 * 1000 - 3 * 60 * 1000) + 3 * 60 * 1000

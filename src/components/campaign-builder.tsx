@@ -264,7 +264,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto flex items-start justify-center py-8 z-50">
-      <div className="relative w-full max-w-4xl mx-auto p-5 bg-white shadow-xl rounded-lg max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full max-w-4xl mx-auto p-5 bg-white shadow-xl rounded-lg max-h-[90vh] overflow-y-auto text-gray-900">
         <div className="flex justify-between items-center mb-6 sticky top-0 bg-white pb-4">
           <h3 className="text-lg font-medium text-gray-900">
             {campaign ? 'Edit Campaign' : 'Create Campaign'}
@@ -311,7 +311,8 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="Enter campaign name"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                  style={{ color: '#000000' }}
                 />
               </div>
 
@@ -465,7 +466,8 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                     value={formData.sender_name}
                     onChange={(e) => setFormData({ ...formData, sender_name: e.target.value })}
                     placeholder={senderName}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    style={{ color: '#000000' }}
                   />
                   <p className="mt-1 text-xs text-gray-500">
                     This name will appear in the recipient's inbox as the sender.

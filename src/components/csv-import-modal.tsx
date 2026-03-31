@@ -236,10 +236,17 @@ export default function CSVImportModal({ isOpen, onClose, onImportComplete }: CS
         errors: []
       }
 
+      // Get current user ID for RLS
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        throw new Error('Not authenticated')
+      }
+
       const batchSize = 50
       for (let i = 0; i < allRows.length; i += batchSize) {
         const batch = allRows.slice(i, i + batchSize)
         const contactsToInsert = batch.map(row => ({
+          user_id: user.id,
           email: row.email,
           first_name: row.first_name || null,
           last_name: row.last_name || null,

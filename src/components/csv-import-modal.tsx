@@ -152,7 +152,7 @@ export default function CSVImportModal({ isOpen, onClose, onImportComplete }: CS
 
   const handleImport = async () => {
     if (preview.length === 0) {
-      alert('No data to import')
+      alert('No data to import. Please upload a file first.')
       return
     }
 
@@ -220,6 +220,14 @@ export default function CSVImportModal({ isOpen, onClose, onImportComplete }: CS
         allRows = parseLines(rowsArray, emailIdx, firstNameIdx, lastNameIdx, nameIdx)
       }
 
+      console.log('Parsed rows to import:', allRows.length, allRows)
+
+      if (allRows.length === 0) {
+        alert('No valid contacts found in the file. Please check the email column.')
+        setUploading(false)
+        return
+      }
+
       // Import with batching
       const importResults: ImportResult = {
         total: allRows.length,
@@ -233,14 +241,16 @@ export default function CSVImportModal({ isOpen, onClose, onImportComplete }: CS
         const batch = allRows.slice(i, i + batchSize)
         const contactsToInsert = batch.map(row => ({
           email: row.email,
-          first_name: row.first_name,
-          last_name: row.last_name,
+          first_name: row.first_name || null,
+          last_name: row.last_name || null,
           status: 'active'
         }))
 
+        console.log(`Inserting batch ${Math.floor(i / batchSize) + 1}:`, contactsToInsert)
+
         if (contactsToInsert.length > 0) {
           try {
-            const { error } = await supabase
+            const { data, error } = await supabase
               .from('contacts')
               .upsert(contactsToInsert, {
                 onConflict: 'user_id,email',
@@ -251,17 +261,21 @@ export default function CSVImportModal({ isOpen, onClose, onImportComplete }: CS
               throw error
             }
 
+            console.log(`Batch ${Math.floor(i / batchSize) + 1} result:`, data)
             importResults.imported += contactsToInsert.length
           } catch (err: any) {
+            console.error(`Batch ${Math.floor(i / batchSize) + 1} error:`, err)
             importResults.errors.push(`Batch ${Math.floor(i / batchSize) + 1}: ${err.message}`)
             importResults.skipped += contactsToInsert.length
           }
         }
       }
 
+      console.log('Import complete:', importResults)
       setResult(importResults)
       onImportComplete()
     } catch (err: any) {
+      console.error('Import failed:', err)
       alert('Import failed: ' + err.message)
     } finally {
       setUploading(false)

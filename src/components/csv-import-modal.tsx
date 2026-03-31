@@ -68,7 +68,12 @@ export default function CSVImportModal({ isOpen, onClose, onImportComplete }: CS
       return
     }
 
-    const rows = parseLines(lines, emailIdx, firstNameIdx, lastNameIdx, nameIdx)
+    // Convert CSV lines to 2D array: each line -> array of values
+    const rowsArray: any[][] = lines.slice(1).map(line =>
+      line.split(',').map(v => v.trim().replace(/^"|"$/g, '').replace(/"/g, ''))
+    )
+
+    const rows = parseLines(rowsArray, emailIdx, firstNameIdx, lastNameIdx, nameIdx)
     setPreview(rows.slice(0, 5))
     setResult(null)
   }
@@ -113,7 +118,10 @@ export default function CSVImportModal({ isOpen, onClose, onImportComplete }: CS
     const rows: any[] = []
 
     for (let i = 0; i < lines.length; i++) {
-      const values = lines[i].map((v: any) => String(v).trim().replace(/^"|"$/g, '').replace(/"/g, ''))
+      const values: string[] = lines[i].map((v: any) =>
+        String(v).trim().replace(/^"|"$/g, '').replace(/"/g, '')
+      )
+
       const email = values[emailIdx]
 
       if (!email) continue
@@ -204,7 +212,12 @@ export default function CSVImportModal({ isOpen, onClose, onImportComplete }: CS
           throw new Error('CSV file must contain an "Email" column')
         }
 
-        allRows = parseLines(lines, emailIdx, firstNameIdx, lastNameIdx, nameIdx)
+        // Convert CSV lines to 2D array
+        const rowsArray: any[][] = lines.slice(1).map(line =>
+          line.split(',').map(v => v.trim().replace(/^"|"$/g, '').replace(/"/g, ''))
+        )
+
+        allRows = parseLines(rowsArray, emailIdx, firstNameIdx, lastNameIdx, nameIdx)
       }
 
       // Import with batching

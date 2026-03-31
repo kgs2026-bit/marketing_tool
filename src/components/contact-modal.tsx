@@ -111,13 +111,13 @@ export default function ContactModal({ isOpen, onClose, onSave, contact }: Conta
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-        <div className="flex justify-between items-center mb-4">
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto flex items-start justify-center py-8 z-50">
+      <div className="relative w-full max-w-md mx-auto p-5 bg-white shadow-xl rounded-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4 sticky top-0 bg-white pb-2">
           <h3 className="text-lg font-medium text-gray-900">
             {contact ? 'Edit Contact' : 'Add Contact'}
           </h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-500 text-xl">
             ✕
           </button>
         </div>

@@ -10,8 +10,8 @@ interface Contact {
 }
 
 interface Recipient {
-  campaign_id: string
   id: string
+  campaign_id: string
   email: string
   status: string
   sent_at: string | null
@@ -19,7 +19,8 @@ interface Recipient {
   clicked_at: string | null
   bounced_at: string | null
   bounce_reason: string | null
-  contacts: Contact[] // Note: Supabase returns array for embedded objects
+  contact_id: string
+  contact: Contact[] // Supabase returns array for foreign key relationships
 }
 
 interface CampaignStats {
@@ -93,7 +94,8 @@ export default function AnalyticsPage() {
           clicked_at,
           bounced_at,
           bounce_reason,
-          contacts (first_name, last_name, company)
+          contact_id,
+          contact (first_name, last_name, company)
         `)
         .in('campaign_id', campaignIds)
 
@@ -231,7 +233,7 @@ export default function AnalyticsPage() {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {recipients.map(rec => {
-                        const contact = rec.contacts[0] || null
+                        const contact = rec.contact && rec.contact.length > 0 ? rec.contact[0] : null
                         const fullName = contact ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim() : ''
                         return (
                           <tr key={rec.id}>

@@ -93,8 +93,9 @@ export async function POST(
     // Get app URL for tracking
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
-    // Get sender name
-    const senderName = user.user_metadata?.full_name ||
+    // Get sender name - use campaign's custom sender_name if set, otherwise fall back to user's name
+    const senderName = campaign.sender_name ||
+                       user.user_metadata?.full_name ||
                        user.user_metadata?.name ||
                        user.email?.split('@')[0] ||
                        'User'

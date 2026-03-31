@@ -9,12 +9,46 @@ export default function SettingsPage() {
   const [gmailEmail, setGmailEmail] = useState('')
   const [appPassword, setAppPassword] = useState('')
   const [resendApiKey, setResendApiKey] = useState('')
+  const [defaultSenderName, setDefaultSenderName] = useState('')
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   useEffect(() => {
     loadConfig()
   }, [])
+
+  useEffect(() => {
+    // Load config for current provider when it changes
+    const loadProviderConfig = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        const { data } = await supabase
+          .from('user_email_configs')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('provider', provider)
+          .single()
+
+        if (data) {
+          setDefaultSenderName(data.default_sender_name || '')
+          if (provider === 'gmail') {
+            setGmailEmail(data.smtp_username || '')
+          }
+        } else {
+          setDefaultSenderName('')
+          if (provider === 'gmail') {
+            setGmailEmail('')
+          }
+        }
+      } catch (error) {
+        console.error('Error loading provider config:', error)
+      }
+    }
+
+    loadProviderConfig()
+  }, [provider])
 
   const loadConfig = async () => {
     try {
@@ -25,10 +59,12 @@ export default function SettingsPage() {
         .from('user_email_configs')
         .select('*')
         .eq('user_id', user.id)
+        .eq('provider', 'resend')
         .single()
 
       if (data) {
         setProvider(data.provider || 'resend')
+        setDefaultSenderName(data.default_sender_name || '')
         if (data.provider === 'gmail') {
           setGmailEmail(data.smtp_username || '')
           // Don't load password for security
@@ -69,6 +105,7 @@ export default function SettingsPage() {
         .upsert({
           user_id: user.id,
           provider,
+          default_sender_name: defaultSenderName || null,
           smtp_host: 'smtp.gmail.com',
           smtp_port: 465,
           smtp_username: provider === 'gmail' ? gmailEmail : null,
@@ -121,12 +158,29 @@ export default function SettingsPage() {
                 </span>
               </label>
               {provider === 'resend' && (
-                <div className="ml-6 p-4 bg-blue-50 rounded-md text-sm">
-                  <p className="text-blue-800">
-                    Resend uses the globally configured domain. Make sure your admin has set up
-                    <code className="mx-1 px-1 bg-blue-100 rounded">RESEND_FROM_EMAIL</code>
-                    with a verified domain in the Resend dashboard.
-                  </p>
+                <div className="ml-6 space-y-4">
+                  <div className="p-4 bg-blue-50 rounded-md text-sm">
+                    <p className="text-blue-800">
+                      Resend uses the globally configured domain. Make sure your admin has set up
+                      <code className="mx-1 px-1 bg-blue-100 rounded">RESEND_FROM_EMAIL</code>
+                      with a verified domain in the Resend dashboard.
+                    </p>
+                  </div>
+                  <div className="border-t border-blue-200 pt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Default Sender Name (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={defaultSenderName}
+                      onChange={(e) => setDefaultSenderName(e.target.value)}
+                      placeholder="Your full name or business name"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      This will be pre-filled when creating campaigns. Can be overridden per campaign.
+                    </p>
+                  </div>
                 </div>
               )}
               <label className="flex items-center mt-3">

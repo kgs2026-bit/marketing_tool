@@ -21,6 +21,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
   const [error, setError] = useState<string | null>(null)
   const [senderEmail, setSenderEmail] = useState<string>('')
   const [senderName, setSenderName] = useState<string>('')
+  const [defaultSenderName, setDefaultSenderName] = useState<string>('')
   const [formData, setFormData] = useState({
     name: '',
     template_id: '',
@@ -30,6 +31,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
     recipient_ids: [] as string[],
     scheduled_at: '',
     email_provider: 'resend' as 'resend' | 'gmail',
+    sender_name: '',
   })
 
   useEffect(() => {
@@ -45,6 +47,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
           recipient_ids: campaign.recipient_list || [],
           scheduled_at: campaign.scheduled_at || '',
           email_provider: campaign.email_provider || 'resend',
+          sender_name: campaign.sender_name || '',
         })
         setStep(3) // go to review step
       } else {
@@ -57,12 +60,14 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
           recipient_ids: [],
           scheduled_at: '',
           email_provider: 'resend',
+          sender_name: defaultSenderName || senderName,
         })
         setStep(1)
       }
       loadTemplates()
       loadContacts()
       loadSenderInfo()
+      loadDefaultSenderName()
     }
   }, [isOpen, campaign])
 
@@ -76,6 +81,26 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
       }
     } catch (error) {
       console.error('Error loading sender info:', error)
+    }
+  }
+
+  const loadDefaultSenderName = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data } = await supabase
+        .from('user_email_configs')
+        .select('default_sender_name')
+        .eq('user_id', user.id)
+        .eq('provider', 'resend')
+        .single()
+
+      if (data?.default_sender_name) {
+        setDefaultSenderName(data.default_sender_name)
+      }
+    } catch (error) {
+      console.error('Error loading default sender name:', error)
     }
   }
 
@@ -166,6 +191,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
         scheduled_at: formData.scheduled_at || null,
         status: formData.scheduled_at ? 'scheduled' : 'draft',
         email_provider: formData.email_provider,
+        sender_name: formData.sender_name || null,
       }
 
       if (campaign) {
@@ -277,6 +303,18 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
           {/* Step 1: Choose Template */}
           {step === 1 && (
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Campaign Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Enter campaign name"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Template</label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -392,7 +430,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                       <strong>Resend</strong> - Fast, reliable, with analytics
                       {formData.email_provider === 'resend' && (
                         <span className="block text-xs text-blue-600 mt-1">
-                          📧 Campaigns will be sent from: {senderName} &lt;{senderEmail}&gt;
+                          📧 Campaigns will be sent from: {formData.sender_name || senderName} &lt;{senderEmail}&gt;
                         </span>
                       )}
                     </span>
@@ -414,6 +452,24 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                       )}
                     </span>
                   </label>
+                </div>
+
+                {/* Editable From Name */}
+                <div className="mt-4">
+                  <label htmlFor="sender_name" className="block text-sm font-medium text-gray-700 mb-2">
+                    From Name
+                  </label>
+                  <input
+                    id="sender_name"
+                    type="text"
+                    value={formData.sender_name}
+                    onChange={(e) => setFormData({ ...formData, sender_name: e.target.value })}
+                    placeholder={senderName}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    This name will appear in the recipient's inbox as the sender.
+                  </p>
                 </div>
               </div>
 
@@ -454,7 +510,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                   <div>
                     <dt className="text-sm font-medium text-gray-500">From</dt>
                     <dd className="text-sm text-gray-900">
-                      {senderName} &lt;{senderEmail}&gt;
+                      {formData.sender_name || senderName} &lt;{senderEmail}&gt;
                     </dd>
                   </div>
                   <div>

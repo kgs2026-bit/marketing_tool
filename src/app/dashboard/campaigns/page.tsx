@@ -17,7 +17,7 @@ export default function CampaignsPage() {
     try {
       const { data, error } = await supabase
         .from('campaigns')
-        .select('*, templates(name, subject)')
+        .select('*, templates(name, subject), sender_name')
         .order('created_at', { ascending: false })
 
       if (error) throw error

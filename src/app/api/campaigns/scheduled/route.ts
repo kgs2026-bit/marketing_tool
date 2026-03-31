@@ -15,29 +15,42 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const now = new Date().toISOString()
+    console.log(`[Scheduled] Cron triggered at ${now}`)
+
     // Find campaigns that are scheduled and scheduled_at <= now
     const { data: dueCampaigns, error } = await supabase
       .from('campaigns')
-      .select('id, user_id')
+      .select('id, user_id, scheduled_at')
       .eq('status', 'scheduled')
-      .lte('scheduled_at', new Date().toISOString())
+      .lte('scheduled_at', now)
 
     if (error) throw error
 
     if (!dueCampaigns || dueCampaigns.length === 0) {
+      console.log('[Scheduled] No campaigns due for sending')
       return NextResponse.json({ message: 'No scheduled campaigns to send' })
     }
 
+    console.log(`[Scheduled] Found ${dueCampaigns.length} campaign(s) due:`, dueCampaigns.map(c => ({ id: c.id, scheduled_at: c.scheduled_at })))
+
     // Mark all due campaigns as 'sending' to prevent duplicate sends
     const campaignIds = dueCampaigns.map(c => c.id)
-    await supabase
+    const { error: updateError } = await supabase
       .from('campaigns')
       .update({ status: 'sending' })
       .in('id', campaignIds)
 
+    if (updateError) {
+      console.error('[Scheduled] Error marking campaigns as sending:', updateError)
+    } else {
+      console.log('[Scheduled] Marked campaigns as sending:', campaignIds)
+    }
+
     const results = []
 
     for (const campaign of dueCampaigns) {
+      console.log(`[Scheduled] Sending campaign ${campaign.id}...`)
       try {
         // Call the existing send endpoint for each campaign with cron secret
         const response = await fetch(`${request.nextUrl.origin}/api/campaigns/${campaign.id}/send`, {
@@ -48,16 +61,20 @@ export async function GET(request: NextRequest) {
         })
 
         if (response.ok) {
+          console.log(`[Scheduled] Successfully sent campaign ${campaign.id}`)
           results.push({ campaignId: campaign.id, status: 'sent' })
         } else {
+          const errorText = await response.text()
+          console.error(`[Scheduled] Failed to send campaign ${campaign.id}:`, errorText)
           // If send fails, revert status back to scheduled
           await supabase
             .from('campaigns')
             .update({ status: 'scheduled' })
             .eq('id', campaign.id)
-          results.push({ campaignId: campaign.id, status: 'failed', error: await response.text() })
+          results.push({ campaignId: campaign.id, status: 'failed', error: errorText })
         }
       } catch (err: any) {
+        console.error(`[Scheduled] Error sending campaign ${campaign.id}:`, err.message)
         await supabase
           .from('campaigns')
           .update({ status: 'scheduled' })
@@ -66,6 +83,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    console.log(`[Scheduled] Completed. Results:`, results)
     return NextResponse.json({
       message: `Processed ${dueCampaigns.length} scheduled campaigns`,
       results

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClientAction } from '@/lib/supabase/server'
 import { Resend } from 'resend'
 import nodemailer from 'nodemailer'
+import { randomUUID } from 'node:crypto'
 
 const resend = new Resend(process.env.RESEND_API_KEY!)
 
@@ -172,6 +173,42 @@ export async function POST(
         personalizedContent = personalizedContent.replace(/\{\{email\}\}/g, contact?.email || '')
         personalizedContent = personalizedContent.replace(/\{\{company\}\}/g, contact?.company || '')
         personalizedContent = personalizedContent.replace(/\{\{unsubscribe_link\}\}/g, `${appUrl}/api/unsubscribe/${recipient.id}`)
+
+        // Add open tracking pixel
+        const trackingPixel = `<img src="${appUrl}/api/track/open/${recipient.id}" width="1" height="1" alt="" style="display:none;" />`
+        if (personalizedContent.includes('</body>')) {
+          personalizedContent = personalizedContent.replace('</body>', `${trackingPixel}</body>`)
+        } else if (personalizedContent.includes('</html>')) {
+          personalizedContent = personalizedContent.replace('</html>', `${trackingPixel}</html>`)
+        } else {
+          personalizedContent += trackingPixel
+        }
+
+        // Add click tracking: rewrite all http/https links
+        const trackingLinksToCreate: any[] = []
+        personalizedContent = personalizedContent.replace(/href\s*=\s*["']([^"']+)["']/gi, (match, url) => {
+          // Skip non-http(s) URLs (like mailto, tel, #, javascript) and URLs already tracked
+          if (!url.startsWith('http')) {
+            return match
+          }
+          const trackingId = randomUUID()
+          trackingLinksToCreate.push({
+            tracking_id: trackingId,
+            campaign_recipient_id: recipient.id,
+            original_url: url,
+            click_count: 0,
+            created_at: new Date().toISOString()
+          })
+          return `href="/api/track/click/${trackingId}"`
+        })
+
+        // Insert tracking links into DB (non-blocking if fails)
+        if (trackingLinksToCreate.length > 0) {
+          const { error: trackingError } = await supabase.from('tracking_links').insert(trackingLinksToCreate)
+          if (trackingError) {
+            console.error('Error creating tracking links:', trackingError)
+          }
+        }
 
         const subject = (campaign.templates?.subject || campaign.subject || '').replace(/\{\{first_name\}\}/g, contact?.first_name || '')
 

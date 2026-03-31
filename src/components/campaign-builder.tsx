@@ -3,6 +3,17 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/browser-client'
 
+// Helper to format UTC date for datetime-local input (convert to local time)
+const formatDateTimeLocal = (utcString: string) => {
+  const date = new Date(utcString)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
 interface CampaignBuilderProps {
   isOpen: boolean
   onClose: () => void
@@ -37,7 +48,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
   useEffect(() => {
     if (isOpen) {
       if (campaign) {
-        // Load campaign data
+        // Load campaign data, convert scheduled_at from UTC to local for input
         setFormData({
           name: campaign.name || '',
           template_id: campaign.template_id || '',
@@ -45,7 +56,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
           content: campaign.content || '',
           html_content: campaign.html_content || '',
           recipient_ids: campaign.recipient_list || [],
-          scheduled_at: campaign.scheduled_at || '',
+          scheduled_at: campaign.scheduled_at ? formatDateTimeLocal(campaign.scheduled_at) : '',
           email_provider: campaign.email_provider || 'resend',
           sender_name: campaign.sender_name || '',
         })
@@ -188,7 +199,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
         content: formData.content || null,
         html_content: formData.html_content || null,
         recipient_list: formData.recipient_ids,
-        scheduled_at: formData.scheduled_at || null,
+        scheduled_at: formData.scheduled_at ? new Date(formData.scheduled_at).toISOString() : null,
         status: formData.scheduled_at ? 'scheduled' : 'draft',
         email_provider: formData.email_provider,
         sender_name: formData.sender_name || null,
@@ -555,10 +566,16 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                 </label>
                 <input
                   type="datetime-local"
-                  value={formData.scheduled_at.slice(0, 16)}
-                  onChange={(e) => setFormData({ ...formData, scheduled_at: e.target.value })}
+                  value={formData.scheduled_at}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setFormData({ ...formData, scheduled_at: value })
+                  }}
                   className="border border-gray-300 rounded-md px-3 py-2 text-sm"
                 />
+                <p className="mt-1 text-xs text-gray-500">
+                  Schedule when to send this campaign. Times are stored in UTC automatically.
+                </p>
               </div>
 
               <div className="flex justify-between items-center pt-4 border-t">

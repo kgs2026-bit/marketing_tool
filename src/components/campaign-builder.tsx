@@ -63,7 +63,12 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
   const loadTemplates = async () => {
     setLoadingTemplates(true)
     try {
-      const { data } = await supabase.from('templates').select('*')
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setTemplates([])
+        return
+      }
+      const { data } = await supabase.from('templates').select('*').eq('user_id', user.id)
       setTemplates(data || [])
     } catch (error) {
       console.error('Error loading templates:', error)
@@ -75,7 +80,12 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
   const loadContacts = async () => {
     setLoadingContacts(true)
     try {
-      const { data } = await supabase.from('contacts').select('*').eq('status', 'active')
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setContacts([])
+        return
+      }
+      const { data } = await supabase.from('contacts').select('*').eq('user_id', user.id).eq('status', 'active')
       setContacts(data || [])
     } catch (error) {
       console.error('Error loading contacts:', error)
@@ -117,7 +127,14 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
         throw new Error('Please select at least one recipient')
       }
 
+      // Get current user for RLS
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        throw new Error('Not authenticated')
+      }
+
       const campaignData = {
+        user_id: user.id,
         name: formData.name,
         template_id: formData.template_id || null,
         subject: formData.subject || null,
@@ -129,11 +146,12 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
       }
 
       if (campaign) {
-        // Update existing campaign
+        // Update existing campaign - include user_id check for RLS
         const { error } = await supabase
           .from('campaigns')
           .update(campaignData)
           .eq('id', campaign.id)
+          .eq('user_id', user.id)
         if (error) throw error
       } else {
         // Create new campaign

@@ -57,6 +57,12 @@ export default function ContactModal({ isOpen, onClose, onSave, contact }: Conta
         .map((t) => t.trim())
         .filter((t) => t !== '')
 
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        throw new Error('Not authenticated')
+      }
+
       if (contact) {
         // Update existing contact
         const { error } = await supabase
@@ -70,11 +76,13 @@ export default function ContactModal({ isOpen, onClose, onSave, contact }: Conta
             tags: tagsArray,
           })
           .eq('id', contact.id)
+          .eq('user_id', user.id)
 
         if (error) throw error
       } else {
         // Create new contact
         const { error } = await supabase.from('contacts').insert({
+          user_id: user.id,
           email: formData.email,
           first_name: formData.first_name || null,
           last_name: formData.last_name || null,

@@ -79,6 +79,12 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
         html = convertToHtml(formData.content)
       }
 
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        throw new Error('Not authenticated')
+      }
+
       if (template) {
         const { error } = await supabase
           .from('templates')
@@ -89,10 +95,12 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
             html_content: html,
           })
           .eq('id', template.id)
+          .eq('user_id', user.id)
 
         if (error) throw error
       } else {
         const { error } = await supabase.from('templates').insert({
+          user_id: user.id,
           name: formData.name,
           subject: formData.subject,
           content: formData.content,

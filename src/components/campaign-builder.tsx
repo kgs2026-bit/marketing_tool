@@ -191,13 +191,22 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
   const sendCampaign = async (campaignId: string) => {
     try {
       const response = await fetch(`/api/campaigns/${campaignId}/send`, { method: 'POST' })
+      const result = await response.json()
+
       if (!response.ok) {
-        const err = await response.json()
-        throw new Error(err.error || 'Failed to send campaign')
+        throw new Error(result.error || 'Failed to send campaign')
       }
-      alert('Campaign sent successfully!')
+
+      if (result.failed > 0) {
+        const errorList = result.errors?.map((e: any) => `${e.email}: ${e.error}`).join('\n') || 'Unknown errors'
+        alert(`Campaign sent with ${result.sent} successful and ${result.failed} failed deliveries.\n\nFailures:\n${errorList}`)
+      } else {
+        alert('Campaign sent successfully to all recipients!')
+      }
       onSave()
     } catch (err: any) {
+      alert('Campaign failed: ' + err.message)
+      console.error(err)
       setError(err.message)
     }
   }

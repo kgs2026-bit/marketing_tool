@@ -174,6 +174,10 @@ export async function POST(
       sent: successCount,
       failed: failureCount,
       total: results.length,
+      errors: results.filter(r => !r.success).map(r => ({
+        email: r.email,
+        error: r.error
+      }))
     })
   } catch (err: any) {
     console.error('Campaign send error:', err)

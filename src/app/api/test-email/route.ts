@@ -5,8 +5,6 @@ const resendApiKey = process.env.RESEND_API_KEY
 const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
-    const unsubscribeUrl = `${appUrl}/api/unsubscribe?email=${encodeURIComponent(email)}`
-
 export async function POST(request: NextRequest) {
   try {
     const { email } = await request.json()
@@ -25,6 +23,8 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
+
+    const unsubscribeUrl = `${appUrl}/api/unsubscribe?email=${encodeURIComponent(email)}`
 
     const resend = new Resend(resendApiKey)
 

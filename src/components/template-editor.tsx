@@ -122,7 +122,7 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto flex items-start justify-center py-8 z-50">
-      <div className="relative w-full max-w-4xl mx-auto p-5 bg-white shadow-xl rounded-lg max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full max-w-4xl mx-auto p-5 bg-white shadow-xl rounded-lg max-h-[90vh] overflow-y-auto text-gray-900">
         <div className="flex justify-between items-center mb-4 sticky top-0 bg-white pb-2">
           <h3 className="text-lg font-medium text-gray-900">
             {template ? 'Edit Template' : 'Create Template'}
@@ -200,6 +200,7 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
                 onChange={(e) => handleContentChange(e.target.value)}
                 placeholder="Write your email content here. Use **bold** or *italic* formatting."
                 className="mt-1 block w-full border border-gray-400 rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base font-mono leading-relaxed text-gray-900 bg-white"
+                style={{ color: '#000000' }}
               />
             ) : (
               <textarea
@@ -208,6 +209,7 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
                 onChange={(e) => handleHtmlChange(e.target.value)}
                 placeholder="Edit HTML directly"
                 className="mt-1 block w-full border border-gray-400 rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base font-mono leading-relaxed text-gray-900 bg-white"
+                style={{ color: '#000000' }}
               />
             )}
           </div>

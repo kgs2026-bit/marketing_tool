@@ -60,6 +60,12 @@ export default function RegisterPage() {
               sign in to existing account
             </Link>
           </p>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Forgot your password?{' '}
+            <Link href="/auth/forgot-password" className="font-medium text-blue-600 hover:text-blue-500">
+              Reset it here
+            </Link>
+          </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleRegister}>
           <div className="rounded-md shadow-sm -space-y-px">

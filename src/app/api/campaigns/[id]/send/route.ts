@@ -11,10 +11,46 @@ export async function POST(
 ) {
   const { id } = await params
   const supabase = await createClientAction()
-  const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Check for cron secret (for scheduled campaigns)
+  const cronSecret = request.headers.get('x-cron-secret')
+  const isCronCall = cronSecret && cronSecret === process.env.CRON_SECRET
+
+  let user
+  if (isCronCall) {
+    // For cron calls, we need to fetch the campaign's user and their auth data
+    const { data: campaign, error: campaignError } = await supabase
+      .from('campaigns')
+      .select('user_id')
+      .eq('id', id)
+      .single()
+
+    if (campaignError || !campaign) {
+      return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+    }
+
+    // Fetch user email and metadata from auth.users using service role
+    const { data: authUser } = await supabase
+      .from('auth.users')
+      .select('email, user_metadata')
+      .eq('id', campaign.user_id)
+      .single()
+
+    if (!authUser) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    user = {
+      id: campaign.user_id,
+      email: authUser.email,
+      user_metadata: authUser.user_metadata
+    }
+  } else {
+    const { data: { user: authUser } } = await supabase.auth.getUser()
+    user = authUser
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
   }
 
   try {
@@ -94,19 +130,46 @@ export async function POST(
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
     // Get sender name - use campaign's custom sender_name if set, otherwise fall back to user's name
+    // For cron calls, we need to fetch user data separately
+    let userEmail = user.email
+    let userMetadata = user.user_metadata
+
+    if (isCronCall) {
+      // Fetch user email and metadata
+      const { data: userData } = await supabase
+        .from('users') // Note: can't query profiles directly without auth
+      // For cron, we already fetched authUser and set user properly above
+    }
+
     const senderName = campaign.sender_name ||
                        user.user_metadata?.full_name ||
                        user.user_metadata?.name ||
                        user.email?.split('@')[0] ||
                        'User'
 
-    // Send emails based on provider
-    const sendPromises = freshCampaign.campaign_recipients.map(async (recipient: any) => {
+    // Helper function to add random delay between 3-5 minutes (180-300 seconds)
+    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+    // Send emails based on provider with delays
+    const sendPromises = freshCampaign.campaign_recipients.map(async (recipient: any, index: number) => {
+      // Add random 3-5 minute delay before each email (except first)
+      if (index > 0) {
+        const delayMs = Math.random() * (5 * 60 * 1000 - 3 * 60 * 1000) + 3 * 60 * 1000
+        await sleep(delayMs)
+      }
       try {
         // Generate tracking and replace variables
         let htmlContent = campaign.templates?.html_content || campaign.html_content || ''
         const trackingPixel = `<img src="${appUrl}/api/track/open/${recipient.id}" width="1" height="1" alt="" style="display:none;" />`
-        htmlContent = htmlContent.replace('</body>', `${trackingPixel}</body>`)
+
+        // Insert tracking pixel before </body> if exists, otherwise append to end
+        if (htmlContent.includes('</body>')) {
+          htmlContent = htmlContent.replace('</body>', `${trackingPixel}</body>`)
+        } else if (htmlContent.includes('</html>')) {
+          htmlContent = htmlContent.replace('</html>', `${trackingPixel}</html>`)
+        } else {
+          htmlContent = htmlContent + trackingPixel
+        }
 
         const { data: contact } = await supabase
           .from('contacts')

@@ -82,7 +82,7 @@ export default function AnalyticsPage() {
 
       // Fetch all campaign recipients for these campaigns in one query
       const campaignIds = campaigns.map(c => c.id)
-      const { data: recipientsData } = await supabase
+      const { data: recipientsData, error: recipientsError } = await supabase
         .from('campaign_recipients')
         .select(`
           id,
@@ -95,9 +95,18 @@ export default function AnalyticsPage() {
           bounced_at,
           bounce_reason,
           contact_id,
-          contact (first_name, last_name, company)
+          contact:contacts (first_name, last_name, company)
         `)
         .in('campaign_id', campaignIds)
+
+      if (recipientsError) {
+        console.error('Error fetching recipients:', recipientsError)
+      }
+
+      // Debug: check if contact data is coming through
+      if (recipientsData && recipientsData.length > 0) {
+        console.log('Sample recipient data:', recipientsData[0])
+      }
 
       // Group recipients by campaign_id
       const recipientsByCampaign: Record<string, Recipient[]> = {}

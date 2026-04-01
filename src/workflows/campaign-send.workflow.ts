@@ -1,9 +1,11 @@
-import { getWritable, fetch as workflowFetch } from "workflow";
+import { getWritable, sleep as workflowSleep, fetch as workflowFetch } from "workflow";
 import { FatalError, RetryableError } from "workflow";
 import { Resend } from "resend";
 
 // Helper: PostgREST call using workflow fetch
 async function postgrest(path: string, method: string = 'GET', body?: any, headers: Record<string, string> = {}) {
+  "use step";
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
@@ -29,14 +31,6 @@ async function postgrest(path: string, method: string = 'GET', body?: any, heade
   return response.json();
 }
 
-// Step: delay with checkpoint
-async function delayStep(seconds: number) {
-  "use step";
-  console.log(`[Workflow] Sleeping for ${seconds} seconds...`);
-  // Workflow's sleep creates a durable timer
-  await (workflowFetch as any)(`internal://sleep/${seconds}s`, { method: 'POST' });
-}
-
 // Main workflow - delegates to sendAllEmailsStep
 export async function sendCampaignWorkflow(campaignId: string) {
   "use workflow";
@@ -47,7 +41,6 @@ export async function sendCampaignWorkflow(campaignId: string) {
   console.log('[Workflow] NEXT_PUBLIC_APP_URL:', process.env.NEXT_PUBLIC_APP_URL);
   console.log('[Workflow] ===============');
 
-  // Call the main sending step
   return await sendAllEmailsStep(campaignId);
 }
 
@@ -72,6 +65,8 @@ async function sendAllEmailsStep(campaignId: string) {
     const contact = recipient.contacts;
     return contact?.status !== "unsubscribed";
   });
+
+  console.log(`[Workflow] Filtered recipients: ${recipientsToSend.length}`);
 
   if (recipientsToSend.length === 0) {
     await postgrest(`/rest/v1/campaigns?id=eq.${campaignId}`, 'PATCH', { status: 'sent', sent_at: new Date().toISOString() });
@@ -107,10 +102,10 @@ async function sendAllEmailsStep(campaignId: string) {
   let consecutiveFailures = 0;
   const maxConsecutiveFailures = 10;
 
-  // Send emails one by one with delays (all inside this step)
+  // Send emails one by one with delays
   for (let i = 0; i < recipientsToSend.length; i++) {
     const recipient = recipientsToSend[i];
-    console.log(`[Workflow] Processing recipient ${i + 1}/${recipientsToSend.length}: ${recipient.email}`);
+    console.log(`[Workflow] Processing ${i + 1}/${recipientsToSend.length}: ${recipient.email}`);
 
     try {
       // Fetch contact
@@ -226,13 +221,13 @@ async function sendAllEmailsStep(campaignId: string) {
         writer.releaseLock();
       }
 
-      // Delay before next email (except last)
+      // Delay before next email (using workflowSleep within step)
       if (i < recipientsToSend.length - 1) {
         const delaySeconds = 180 + Math.random() * 120;
-        console.log(`[Workflow] Delaying ${Math.floor(delaySeconds)} seconds before next email...`);
-        await delayStep(Math.floor(delaySeconds));
+        console.log(`[Workflow] Sleeping for ${Math.floor(delaySeconds)} seconds...`);
+        await workflowSleep(`${Math.floor(delaySeconds)}s`);
+        console.log(`[Workflow] Awake, continuing...`);
       }
-
     } catch (err: any) {
       console.error(`[Workflow] Failed for ${recipient.email}:`, err.message);
 
@@ -276,13 +271,14 @@ async function sendAllEmailsStep(campaignId: string) {
       // Delay after failure too (unless last)
       if (i < recipientsToSend.length - 1) {
         const delaySeconds = 180 + Math.random() * 120;
-        console.log(`[Workflow] Delaying ${Math.floor(delaySeconds)} seconds after failure...`);
-        await delayStep(Math.floor(delaySeconds));
+        console.log(`[Workflow] Sleeping ${Math.floor(delaySeconds)} seconds after failure...`);
+        await workflowSleep(`${Math.floor(delaySeconds)}s`);
       }
     }
   }
 
   // Final status update
+  console.log('[Workflow] All emails processed, updating campaign status to sent');
   await postgrest(`/rest/v1/campaigns?id=eq.${campaignId}`, 'PATCH', {
     status: "sent",
     sent_at: new Date().toISOString(),

@@ -73,7 +73,7 @@ async function updateCampaignStatusStep(campaignId: string, status: string, sent
   await postgrest(`/rest/v1/campaigns?id=eq.${campaignId}`, 'PATCH', body);
 }
 
-// Step: send single email and report success
+// Step: send single email (all I/O in step)
 async function sendSingleEmailStep(
   campaignId: string,
   recipient: any,
@@ -117,12 +117,14 @@ async function sendSingleEmailStep(
     }
     personalizedContent = personalizedContent.replace(/\{\{unsubscribe_link\}\}/g, `${appUrl}/api/unsubscribe/${recipient.id}`);
 
-    // Click tracking
+    // Click tracking - find all href URLs
     const urls: string[] = [];
     const urlMap = new Map<string, string>();
     const hrefRegex = /href\s*=\s*["']([^"']+)["']/gi;
     let match;
+    let matchCount = 0;
     while ((match = hrefRegex.exec(htmlContent)) !== null) {
+      matchCount++;
       const url = match[1];
       if (url.startsWith("http") && !urlMap.has(url)) {
         const trackingId = crypto.randomUUID();
@@ -130,6 +132,8 @@ async function sendSingleEmailStep(
         urls.push(url);
       }
     }
+
+    console.log(`[Workflow] Found ${matchCount} href attrs, ${urls.length} unique http URLs to track`);
 
     const trackingLinksToCreate: any[] = urls.map(url => ({
       tracking_id: urlMap.get(url)!,
@@ -142,19 +146,27 @@ async function sendSingleEmailStep(
     if (trackingLinksToCreate.length > 0) {
       try {
         await postgrest('/rest/v1/tracking_links', 'POST', trackingLinksToCreate);
-        console.log(`[Workflow] Created ${trackingLinksToCreate.length} tracking links`);
+        console.log(`[Workflow] Created ${trackingLinksToCreate.length} tracking links in DB`);
       } catch (err: any) {
         console.error(`[Workflow] Failed to create tracking links:`, err.message);
       }
+    } else {
+      console.log(`[Workflow] No tracking links created (no http URLs found in HTML)`);
     }
 
-    // Replace URLs
+    // Replace URLs with tracking versions
+    let replacedCount = 0;
     for (const url of urls) {
       const trackingId = urlMap.get(url)!;
       const trackingUrl = `${appUrl}/api/track/click/${trackingId}`;
+      const count1 = (personalizedContent.match(new RegExp(`href="${url}"`, 'g')) || []).length;
+      const count2 = (personalizedContent.match(new RegExp(`href='${url}'`, 'g')) || []).length;
       personalizedContent = personalizedContent.replaceAll(`href="${url}"`, `href="${trackingUrl}"`);
       personalizedContent = personalizedContent.replaceAll(`href='${url}'`, `href="${trackingUrl}"`);
+      replacedCount += count1 + count2;
     }
+    console.log(`[Workflow] Replaced ${replacedCount} href occurrences with tracking URLs`);
+    console.log(`[Workflow] Final HTML length: ${personalizedContent.length} chars`);
 
     // Send email
     const subject = (campaign.templates?.subject || campaign.subject || "").replace(/\{\{first_name\}\}/g, contact?.first_name || "");
@@ -189,7 +201,7 @@ async function sendSingleEmailStep(
     console.error(`[Workflow] Failed for ${recipient.email}:`, err.message);
 
     if (err.message?.includes("rate") || err.message?.includes("429")) {
-      throw new RetryableError(`Rate limited: ${err.message}`, { retryAfter: "5m" });
+      throw new RetryableError(`Rate limited: ${err.message}`, { retryAfter: "30s" });
     }
 
     // Update recipient as bounced
@@ -255,7 +267,7 @@ export async function sendCampaignWorkflow(campaignId: string) {
     const total = recipientsToSend.length;
 
     try {
-      // Send email (step) - includes all its own logging
+      // Send email (step)
       const result = await sendSingleEmailStep(campaignId, recipient, appUrl, campaign, senderName, userEmail, current, total);
       results.push(result);
 
@@ -269,9 +281,9 @@ export async function sendCampaignWorkflow(campaignId: string) {
         throw new FatalError(`${maxConsecutiveFailures} consecutive failures`);
       }
 
-      // Delay before next email (workflow level)
+      // Delay before next email (workflow level) - 30-60 seconds for testing
       if (i < recipientsToSend.length - 1) {
-        const delaySeconds = 180 + Math.random() * 120;
+        const delaySeconds = 30 + Math.random() * 30;
         console.log(`[Workflow] Sleeping for ${Math.floor(delaySeconds)} seconds...`);
         await sleep(`${Math.floor(delaySeconds)}s`);
         console.log(`[Workflow] Awake, continuing...`);
@@ -280,7 +292,7 @@ export async function sendCampaignWorkflow(campaignId: string) {
       console.error(`[Workflow] Failed for ${recipient.email}:`, err.message);
 
       if (err.message?.includes("rate") || err.message?.includes("429")) {
-        throw new RetryableError(`Rate limited: ${err.message}`, { retryAfter: "5m" });
+        throw new RetryableError(`Rate limited: ${err.message}`, { retryAfter: "30s" });
       }
 
       results.push({ success: false, email: recipient.email, error: err.message });
@@ -292,7 +304,7 @@ export async function sendCampaignWorkflow(campaignId: string) {
 
       // Delay after failure too (unless last)
       if (i < recipientsToSend.length - 1) {
-        const delaySeconds = 180 + Math.random() * 120;
+        const delaySeconds = 30 + Math.random() * 30;
         console.log(`[Workflow] Sleeping ${Math.floor(delaySeconds)} seconds after failure...`);
         await sleep(`${Math.floor(delaySeconds)}s`);
       }

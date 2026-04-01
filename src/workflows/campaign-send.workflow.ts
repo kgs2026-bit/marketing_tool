@@ -9,6 +9,11 @@ function normalizeUrl(base: string, path: string): string {
   return `${normalizedBase}/${normalizedPath}`
 }
 
+// Helper: Escape special regex characters in a string
+function escapeRegex(string: string): string {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 // Helper: PostgREST call (used inside steps)
 async function postgrest(path: string, method: string = 'GET', body?: any, headers: Record<string, string> = {}) {
   "use step";
@@ -124,26 +129,42 @@ async function sendSingleEmailStep(
     }
     personalizedContent = personalizedContent.replace(/\{\{unsubscribe_link\}\}/g, `<a href="${normalizeUrl(appUrl, `/api/unsubscribe/${recipient.id}`)}" style="color: #6b7280; text-decoration: underline;">unsubscribe here</a>`);
 
-    // Click tracking - find all href URLs
-    const urls: string[] = [];
+    // Click tracking - track ALL URLs (href + plain text)
     const urlMap = new Map<string, string>();
+
+    // 1. Find all URLs in href attributes
     const hrefRegex = /href\s*=\s*["']([^"']+)["']/gi;
-    let match;
-    let matchCount = 0;
-    while ((match = hrefRegex.exec(htmlContent)) !== null) {
-      matchCount++;
-      const url = match[1];
+    let hrefMatch;
+    while ((hrefMatch = hrefRegex.exec(personalizedContent)) !== null) {
+      const url = hrefMatch[1];
       if (url.startsWith("http") && !urlMap.has(url)) {
         const trackingId = crypto.randomUUID();
         urlMap.set(url, trackingId);
-        urls.push(url);
       }
     }
 
-    console.log(`[Workflow] Found ${matchCount} href attrs, ${urls.length} unique http URLs to track`);
+    // 2. Find plain text URLs (outside HTML tags)
+    // Mask all tags to avoid matching URLs inside tag attributes
+    const tags: string[] = [];
+    const withoutTags = personalizedContent.replace(/<[^>]*>/g, (tag: string) => {
+      tags.push(tag);
+      return `__TAG_${tags.length - 1}__`;
+    });
+    const plainUrlRegex = /https?:\/\/[^\s<>"']+/gi;
+    let plainMatch;
+    while ((plainMatch = plainUrlRegex.exec(withoutTags)) !== null) {
+      const url = plainMatch[0];
+      if (!urlMap.has(url)) {
+        const trackingId = crypto.randomUUID();
+        urlMap.set(url, trackingId);
+      }
+    }
 
-    const trackingLinksToCreate: any[] = urls.map(url => ({
-      tracking_id: urlMap.get(url)!,
+    console.log(`[Workflow] Found ${urlMap.size} unique URLs to track (href + plain text)`);
+
+    // Create tracking link records in DB
+    const trackingLinksToCreate = Array.from(urlMap.entries()).map(([url, trackingId]) => ({
+      tracking_id: trackingId,
       campaign_recipient_id: recipient.id,
       original_url: url,
       click_count: 0,
@@ -158,21 +179,48 @@ async function sendSingleEmailStep(
         console.error(`[Workflow] Failed to create tracking links:`, err.message);
       }
     } else {
-      console.log(`[Workflow] No tracking links created (no http URLs found in HTML)`);
+      console.log(`[Workflow] No tracking links created (no URLs found)`);
     }
 
-    // Replace URLs with tracking versions
-    let replacedCount = 0;
-    for (const url of urls) {
+    // 3. Replace href attributes with tracking URLs
+    // Sort URLs by length descending to avoid partial replacements
+    const sortedUrls = Array.from(urlMap.keys()).sort((a, b) => b.length - a.length);
+    let hrefReplacedCount = 0;
+    for (const url of sortedUrls) {
       const trackingId = urlMap.get(url)!;
       const trackingUrl = normalizeUrl(appUrl, `/api/track/click/${trackingId}`);
       const count1 = (personalizedContent.match(new RegExp(`href="${url}"`, 'g')) || []).length;
       const count2 = (personalizedContent.match(new RegExp(`href='${url}'`, 'g')) || []).length;
       personalizedContent = personalizedContent.replaceAll(`href="${url}"`, `href="${trackingUrl}"`);
       personalizedContent = personalizedContent.replaceAll(`href='${url}'`, `href="${trackingUrl}"`);
-      replacedCount += count1 + count2;
+      hrefReplacedCount += count1 + count2;
     }
-    console.log(`[Workflow] Replaced ${replacedCount} href occurrences with tracking URLs`);
+    console.log(`[Workflow] Replaced ${hrefReplacedCount} href occurrences with tracking URLs`);
+
+    // 4. Replace plain text URLs with clickable tracking links (outside tags)
+    // Mask tags again in the current personalizedContent (after href replacements)
+    const tags2: string[] = [];
+    let withoutTags2 = personalizedContent.replace(/<[^>]*>/g, (tag: string) => {
+      tags2.push(tag);
+      return `__TAG_${tags2.length - 1}__`;
+    });
+
+    let plainReplacedCount = 0;
+    for (const url of sortedUrls) {
+      const trackingId = urlMap.get(url)!;
+      const trackingUrl = normalizeUrl(appUrl, `/api/track/click/${trackingId}`);
+      // Use regex to replace all occurrences (case-insensitive)
+      const regex = new RegExp(escapeRegex(url), 'gi');
+      const matches = withoutTags2.match(regex) || [];
+      if (matches.length > 0) {
+        plainReplacedCount += matches.length;
+        withoutTags2 = withoutTags2.replace(regex, `<a href="${trackingUrl}">${url}</a>`);
+      }
+    }
+
+    // Unmask tags
+    personalizedContent = withoutTags2.replace(/__TAG_(\d+)__/g, (match: string, idx: string) => tags2[parseInt(idx)]);
+    console.log(`[Workflow] Replaced ${plainReplacedCount} plain text URL occurrences with tracking links`);
     console.log(`[Workflow] Final HTML length: ${personalizedContent.length} chars`);
 
     // Send email

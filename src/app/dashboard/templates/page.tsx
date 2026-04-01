@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react'
 import TemplateTable from '@/components/template-table'
 import TemplateEditor from '@/components/template-editor'
 import { createClient } from '@/lib/supabase/browser-client'
+import { useToast } from '@/components/toast'
 
 export default function TemplatesPage() {
+  const { addToast } = useToast()
   const [templates, setTemplates] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isEditorOpen, setIsEditorOpen] = useState(false)
@@ -38,9 +40,10 @@ export default function TemplatesPage() {
 
     const { error } = await supabase.from('templates').delete().eq('id', id)
     if (error) {
-      alert('Error deleting template: ' + error.message)
+      addToast({ message: 'Error deleting template: ' + error.message, type: 'error' })
     } else {
       fetchTemplates()
+      addToast({ message: 'Template deleted successfully', type: 'success' })
     }
   }
 

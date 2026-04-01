@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/browser-client'
+import { useToast } from '@/components/toast'
 
 // Helper to format UTC date for datetime-local input (convert to local time)
 const formatDateTimeLocal = (utcString: string) => {
@@ -23,6 +24,7 @@ interface CampaignBuilderProps {
 
 export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: CampaignBuilderProps) {
   const supabase = createClient()
+  const { addToast } = useToast()
   const [step, setStep] = useState(1)
   const [templates, setTemplates] = useState<any[]>([])
   const [paginatedContacts, setPaginatedContacts] = useState<any[]>([]) // Contacts for current page
@@ -326,13 +328,13 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
 
       if (result.failed > 0) {
         const errorList = result.errors?.map((e: any) => `${e.email}: ${e.error}`).join('\n') || 'Unknown errors'
-        alert(`Campaign sent with ${result.sent} successful and ${result.failed} failed deliveries.\n\nFailures:\n${errorList}`)
+        addToast({ message: `Campaign sent with ${result.sent} successful and ${result.failed} failed deliveries. Failures: ${errorList}`, type: 'warning', duration: 10000 })
       } else {
-        alert('Campaign sent successfully to all recipients!')
+        addToast({ message: 'Campaign sent successfully to all recipients!', type: 'success' })
       }
       onSave()
     } catch (err: any) {
-      alert('Campaign failed: ' + err.message)
+      addToast({ message: 'Campaign failed: ' + err.message, type: 'error', duration: 10000 })
       console.error(err)
       setError(err.message)
     }

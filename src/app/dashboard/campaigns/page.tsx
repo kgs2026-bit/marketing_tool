@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react'
 import CampaignTable from '@/components/campaign-table'
 import CampaignBuilder from '@/components/campaign-builder'
 import { createClient } from '@/lib/supabase/browser-client'
+import { useToast } from '@/components/toast'
 
 export default function CampaignsPage() {
+  const { addToast } = useToast()
   const [campaigns, setCampaigns] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isBuilderOpen, setIsBuilderOpen] = useState(false)
@@ -38,9 +40,10 @@ export default function CampaignsPage() {
 
     const { error } = await supabase.from('campaigns').delete().eq('id', id)
     if (error) {
-      alert('Error deleting campaign: ' + error.message)
+      addToast({ message: 'Error deleting campaign: ' + error.message, type: 'error' })
     } else {
       fetchCampaigns()
+      addToast({ message: 'Campaign deleted successfully', type: 'success' })
     }
   }
 

@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react'
 import * as XLSX from 'xlsx'
 import { createClient } from '@/lib/supabase/browser-client'
+import { useToast } from '@/components/toast'
 
 interface CSVImportModalProps {
   isOpen: boolean
@@ -19,6 +20,7 @@ interface ImportResult {
 
 export default function CSVImportModal({ isOpen, onClose, onImportComplete }: CSVImportModalProps) {
   const supabase = createClient()
+  const { addToast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [result, setResult] = useState<ImportResult | null>(null)
@@ -64,7 +66,7 @@ export default function CSVImportModal({ isOpen, onClose, onImportComplete }: CS
     const nameIdx = headers.findIndex(h => h === 'name' || h === 'full name' || h === 'fullname')
 
     if (emailIdx === -1) {
-      alert('File must contain an "Email" column')
+      addToast({ message: 'File must contain an "Email" column', type: 'error' })
       return
     }
 
@@ -99,7 +101,7 @@ export default function CSVImportModal({ isOpen, onClose, onImportComplete }: CS
     const nameIdx = headers.findIndex(h => h === 'name' || h === 'full name' || h === 'fullname')
 
     if (emailIdx === -1) {
-      alert('Excel file must contain an "Email" column')
+      addToast({ message: 'Excel file must contain an "Email" column', type: 'error' })
       return
     }
 
@@ -152,7 +154,7 @@ export default function CSVImportModal({ isOpen, onClose, onImportComplete }: CS
 
   const handleImport = async () => {
     if (preview.length === 0) {
-      alert('No data to import. Please upload a file first.')
+      addToast({ message: 'No data to import. Please upload a file first.', type: 'error' })
       return
     }
 
@@ -223,7 +225,7 @@ export default function CSVImportModal({ isOpen, onClose, onImportComplete }: CS
       console.log('Parsed rows to import:', allRows.length, allRows)
 
       if (allRows.length === 0) {
-        alert('No valid contacts found in the file. Please check the email column.')
+        addToast({ message: 'No valid contacts found in the file. Please check the email column.', type: 'error' })
         setUploading(false)
         return
       }
@@ -283,7 +285,7 @@ export default function CSVImportModal({ isOpen, onClose, onImportComplete }: CS
       onImportComplete()
     } catch (err: any) {
       console.error('Import failed:', err)
-      alert('Import failed: ' + err.message)
+      addToast({ message: 'Import failed: ' + err.message, type: 'error' })
     } finally {
       setUploading(false)
     }

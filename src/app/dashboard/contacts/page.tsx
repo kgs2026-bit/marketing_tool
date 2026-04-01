@@ -5,8 +5,10 @@ import ContactTable from '@/components/contact-table'
 import ContactModal from '@/components/contact-modal'
 import CSVImportModal from '@/components/csv-import-modal'
 import { createClient } from '@/lib/supabase/browser-client'
+import { useToast } from '@/components/toast'
 
 export default function ContactsPage() {
+  const { addToast } = useToast()
   const [contacts, setContacts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -58,9 +60,10 @@ export default function ContactsPage() {
 
     const { error } = await supabase.from('contacts').delete().eq('id', id)
     if (error) {
-      alert('Error deleting contact: ' + error.message)
+      addToast({ message: 'Error deleting contact: ' + error.message, type: 'error' })
     } else {
       fetchContacts(currentPage, pageSize)
+      addToast({ message: 'Contact deleted successfully', type: 'success' })
     }
   }
 
@@ -103,7 +106,7 @@ export default function ContactsPage() {
           📥 Import CSV
         </button>
         <button
-          onClick={() => alert('CSV export coming soon!')}
+          onClick={() => addToast({ message: 'CSV export coming soon!', type: 'info' })}
           className="text-sm text-gray-600 hover:text-blue-600"
         >
           📤 Export CSV

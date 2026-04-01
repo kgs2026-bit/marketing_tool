@@ -1,4 +1,4 @@
-import { sleep, getWritable, fetch as workflowFetch } from "workflow";
+import { sleep, fetch as workflowFetch } from "workflow";
 import { FatalError, RetryableError } from "workflow";
 import { Resend } from "resend";
 
@@ -73,119 +73,141 @@ async function updateCampaignStatusStep(campaignId: string, status: string, sent
   await postgrest(`/rest/v1/campaigns?id=eq.${campaignId}`, 'PATCH', body);
 }
 
-// Step: send single email (all I/O in step)
+// Step: send single email and report success
 async function sendSingleEmailStep(
   campaignId: string,
   recipient: any,
   appUrl: string,
   campaign: any,
   senderName: string,
-  userEmail: string
+  userEmail: string,
+  current: number,
+  total: number
 ) {
   "use step";
 
-  console.log(`[Workflow] Sending to ${recipient.email}`);
+  console.log(`[Workflow] Sending ${current}/${total}: ${recipient.email}`);
 
-  // Fetch contact
-  const contactData = await postgrest(
-    `/rest/v1/contacts?id=eq.${recipient.contact_id}&select=*`,
-    'GET'
-  );
-  const contact = contactData[0];
+  try {
+    // Fetch contact
+    const contactData = await postgrest(
+      `/rest/v1/contacts?id=eq.${recipient.contact_id}&select=*`,
+      'GET'
+    );
+    const contact = contactData[0];
 
-  // Personalize content
-  let htmlContent = campaign.templates?.html_content || campaign.html_content || "";
-  const trackingPixel = `<img src="${appUrl}/api/track/open/${recipient.id}" width="1" height="1" alt="" style="display:none;" />`;
+    // Personalize content
+    let htmlContent = campaign.templates?.html_content || campaign.html_content || "";
+    const trackingPixel = `<img src="${appUrl}/api/track/open/${recipient.id}" width="1" height="1" alt="" style="display:none;" />`;
 
-  if (htmlContent.includes("</body>")) {
-    htmlContent = htmlContent.replace("</body>", `${trackingPixel}</body>`);
-  } else if (htmlContent.includes("</html>")) {
-    htmlContent = htmlContent.replace("</html>", `${trackingPixel}</html>`);
-  } else {
-    htmlContent = htmlContent + trackingPixel;
-  }
-
-  let personalizedContent = htmlContent;
-  if (contact) {
-    personalizedContent = personalizedContent.replace(/\{\{first_name\}\}/g, contact.first_name || "");
-    personalizedContent = personalizedContent.replace(/\{\{last_name\}\}/g, contact.last_name || "");
-    personalizedContent = personalizedContent.replace(/\{\{email\}\}/g, contact.email || "");
-    personalizedContent = personalizedContent.replace(/\{\{company\}\}/g, contact.company || "");
-  }
-  personalizedContent = personalizedContent.replace(/\{\{unsubscribe_link\}\}/g, `${appUrl}/api/unsubscribe/${recipient.id}`);
-
-  // Click tracking - find all URLs
-  const urls: string[] = [];
-  const urlMap = new Map<string, string>();
-  const hrefRegex = /href\s*=\s*["']([^"']+)["']/gi;
-  let match;
-  while ((match = hrefRegex.exec(htmlContent)) !== null) {
-    const url = match[1];
-    if (url.startsWith("http") && !urlMap.has(url)) {
-      const trackingId = crypto.randomUUID();
-      urlMap.set(url, trackingId);
-      urls.push(url);
+    if (htmlContent.includes("</body>")) {
+      htmlContent = htmlContent.replace("</body>", `${trackingPixel}</body>`);
+    } else if (htmlContent.includes("</html>")) {
+      htmlContent = htmlContent.replace("</html>", `${trackingPixel}</html>`);
+    } else {
+      htmlContent = htmlContent + trackingPixel;
     }
-  }
 
-  // Create tracking links
-  const trackingLinksToCreate: any[] = urls.map(url => ({
-    tracking_id: urlMap.get(url)!,
-    campaign_recipient_id: recipient.id,
-    original_url: url,
-    click_count: 0,
-    created_at: new Date().toISOString(),
-  }));
+    let personalizedContent = htmlContent;
+    if (contact) {
+      personalizedContent = personalizedContent.replace(/\{\{first_name\}\}/g, contact.first_name || "");
+      personalizedContent = personalizedContent.replace(/\{\{last_name\}\}/g, contact.last_name || "");
+      personalizedContent = personalizedContent.replace(/\{\{email\}\}/g, contact.email || "");
+      personalizedContent = personalizedContent.replace(/\{\{company\}\}/g, contact.company || "");
+    }
+    personalizedContent = personalizedContent.replace(/\{\{unsubscribe_link\}\}/g, `${appUrl}/api/unsubscribe/${recipient.id}`);
 
-  if (trackingLinksToCreate.length > 0) {
+    // Click tracking
+    const urls: string[] = [];
+    const urlMap = new Map<string, string>();
+    const hrefRegex = /href\s*=\s*["']([^"']+)["']/gi;
+    let match;
+    while ((match = hrefRegex.exec(htmlContent)) !== null) {
+      const url = match[1];
+      if (url.startsWith("http") && !urlMap.has(url)) {
+        const trackingId = crypto.randomUUID();
+        urlMap.set(url, trackingId);
+        urls.push(url);
+      }
+    }
+
+    const trackingLinksToCreate: any[] = urls.map(url => ({
+      tracking_id: urlMap.get(url)!,
+      campaign_recipient_id: recipient.id,
+      original_url: url,
+      click_count: 0,
+      created_at: new Date().toISOString(),
+    }));
+
+    if (trackingLinksToCreate.length > 0) {
+      try {
+        await postgrest('/rest/v1/tracking_links', 'POST', trackingLinksToCreate);
+        console.log(`[Workflow] Created ${trackingLinksToCreate.length} tracking links`);
+      } catch (err: any) {
+        console.error(`[Workflow] Failed to create tracking links:`, err.message);
+      }
+    }
+
+    // Replace URLs
+    for (const url of urls) {
+      const trackingId = urlMap.get(url)!;
+      const trackingUrl = `${appUrl}/api/track/click/${trackingId}`;
+      personalizedContent = personalizedContent.replaceAll(`href="${url}"`, `href="${trackingUrl}"`);
+      personalizedContent = personalizedContent.replaceAll(`href='${url}'`, `href="${trackingUrl}"`);
+    }
+
+    // Send email
+    const subject = (campaign.templates?.subject || campaign.subject || "").replace(/\{\{first_name\}\}/g, contact?.first_name || "");
+    const fromAddress = userEmail ? `${senderName} <${userEmail}>` : `${senderName} <${process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev"}>`;
+
+    const resend = new Resend(process.env.RESEND_API_KEY!);
+    const { data, error } = await resend.emails.send({
+      from: fromAddress,
+      to: [recipient.email],
+      subject,
+      html: personalizedContent,
+      headers: {
+        "X-Campaign-ID": campaignId,
+        "X-Recipient-ID": recipient.id,
+      },
+    });
+
+    if (error) throw error;
+
+    console.log(`[Workflow] Email sent to ${recipient.email}, message_id: ${data.id}`);
+
+    // Update recipient as delivered
+    await postgrest(`/rest/v1/campaign_recipients?id=eq.${recipient.id}`, 'PATCH', {
+      status: "delivered",
+      sent_at: new Date().toISOString(),
+      delivered_at: new Date().toISOString(),
+      message_id: data.id,
+    });
+
+    return { success: true, recipientId: recipient.id, messageId: data.id };
+  } catch (err: any) {
+    console.error(`[Workflow] Failed for ${recipient.email}:`, err.message);
+
+    if (err.message?.includes("rate") || err.message?.includes("429")) {
+      throw new RetryableError(`Rate limited: ${err.message}`, { retryAfter: "5m" });
+    }
+
+    // Update recipient as bounced
     try {
-      await postgrest('/rest/v1/tracking_links', 'POST', trackingLinksToCreate);
-      console.log(`[Workflow] Created ${trackingLinksToCreate.length} tracking links`);
-    } catch (err: any) {
-      console.error(`[Workflow] Failed to create tracking links:`, err.message);
+      await postgrest(`/rest/v1/campaign_recipients?id=eq.${recipient.id}`, 'PATCH', {
+        status: "bounced",
+        bounced_at: new Date().toISOString(),
+        bounce_reason: err.message,
+      });
+    } catch (updateErr: any) {
+      console.error(`[Workflow] Failed to update bounce status:`, updateErr.message);
     }
+
+    return { success: false, email: recipient.email, error: err.message };
   }
-
-  // Replace URLs with tracking versions
-  for (const url of urls) {
-    const trackingId = urlMap.get(url)!;
-    const trackingUrl = `${appUrl}/api/track/click/${trackingId}`;
-    personalizedContent = personalizedContent.replaceAll(`href="${url}"`, `href="${trackingUrl}"`);
-    personalizedContent = personalizedContent.replaceAll(`href='${url}'`, `href="${trackingUrl}"`);
-  }
-
-  // Send email
-  const subject = (campaign.templates?.subject || campaign.subject || "").replace(/\{\{first_name\}\}/g, contact?.first_name || "");
-  const fromAddress = userEmail ? `${senderName} <${userEmail}>` : `${senderName} <${process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev"}>`;
-
-  const resend = new Resend(process.env.RESEND_API_KEY!);
-  const { data, error } = await resend.emails.send({
-    from: fromAddress,
-    to: [recipient.email],
-    subject,
-    html: personalizedContent,
-    headers: {
-      "X-Campaign-ID": campaignId,
-      "X-Recipient-ID": recipient.id,
-    },
-  });
-
-  if (error) throw error;
-
-  console.log(`[Workflow] Email sent to ${recipient.email}, message_id: ${data.id}`);
-
-  // Update recipient as delivered
-  await postgrest(`/rest/v1/campaign_recipients?id=eq.${recipient.id}`, 'PATCH', {
-    status: "delivered",
-    sent_at: new Date().toISOString(),
-    delivered_at: new Date().toISOString(),
-    message_id: data.id,
-  });
-
-  return { success: true, recipientId: recipient.id, messageId: data.id };
 }
 
-// Main workflow - contains loop and sleep at workflow level
+// Main workflow - contains loop and sleep
 export async function sendCampaignWorkflow(campaignId: string) {
   "use workflow";
 
@@ -226,14 +248,15 @@ export async function sendCampaignWorkflow(campaignId: string) {
   let consecutiveFailures = 0;
   const maxConsecutiveFailures = 10;
 
-  // Loop at workflow level with sleep between iterations
+  // Loop at workflow level
   for (let i = 0; i < recipientsToSend.length; i++) {
     const recipient = recipientsToSend[i];
-    console.log(`[Workflow] Processing ${i + 1}/${recipientsToSend.length}: ${recipient.email}`);
+    const current = i + 1;
+    const total = recipientsToSend.length;
 
     try {
-      // Send email (step)
-      const result = await sendSingleEmailStep(campaignId, recipient, appUrl, campaign, senderName, userEmail);
+      // Send email (step) - includes all its own logging
+      const result = await sendSingleEmailStep(campaignId, recipient, appUrl, campaign, senderName, userEmail, current, total);
       results.push(result);
 
       if (result.success) {
@@ -246,22 +269,7 @@ export async function sendCampaignWorkflow(campaignId: string) {
         throw new FatalError(`${maxConsecutiveFailures} consecutive failures`);
       }
 
-      // Progress update (workflow level)
-      const writable = getWritable();
-      const writer = writable.getWriter();
-      try {
-        await writer.write({
-          type: "progress",
-          current: i + 1,
-          total: recipientsToSend.length,
-          success: result.success,
-          email: recipient.email,
-        });
-      } finally {
-        writer.releaseLock();
-      }
-
-      // Delay before next email (workflow level - must be outside steps)
+      // Delay before next email (workflow level)
       if (i < recipientsToSend.length - 1) {
         const delaySeconds = 180 + Math.random() * 120;
         console.log(`[Workflow] Sleeping for ${Math.floor(delaySeconds)} seconds...`);
@@ -275,17 +283,6 @@ export async function sendCampaignWorkflow(campaignId: string) {
         throw new RetryableError(`Rate limited: ${err.message}`, { retryAfter: "5m" });
       }
 
-      // Update recipient as bounced (step)
-      try {
-        await postgrest(`/rest/v1/campaign_recipients?id=eq.${recipient.id}`, 'PATCH', {
-          status: "bounced",
-          bounced_at: new Date().toISOString(),
-          bounce_reason: err.message,
-        });
-      } catch (updateErr: any) {
-        console.error(`[Workflow] Failed to update bounce status:`, updateErr.message);
-      }
-
       results.push({ success: false, email: recipient.email, error: err.message });
       consecutiveFailures++;
 
@@ -293,22 +290,7 @@ export async function sendCampaignWorkflow(campaignId: string) {
         throw new FatalError(`${maxConsecutiveFailures} consecutive failures`);
       }
 
-      // Progress update even on failure
-      const writable = getWritable();
-      const writer = writable.getWriter();
-      try {
-        await writer.write({
-          type: "progress",
-          current: i + 1,
-          total: recipientsToSend.length,
-          success: false,
-          email: recipient.email,
-        });
-      } finally {
-        writer.releaseLock();
-      }
-
-      // Delay after failure too (workflow level)
+      // Delay after failure too (unless last)
       if (i < recipientsToSend.length - 1) {
         const delaySeconds = 180 + Math.random() * 120;
         console.log(`[Workflow] Sleeping ${Math.floor(delaySeconds)} seconds after failure...`);

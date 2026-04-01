@@ -6,9 +6,11 @@ import ContactModal from '@/components/contact-modal'
 import CSVImportModal from '@/components/csv-import-modal'
 import { createClient } from '@/lib/supabase/browser-client'
 import { useToast } from '@/components/toast'
+import { useConfirmation } from '@/components/confirmation-provider'
 
 export default function ContactsPage() {
   const { addToast } = useToast()
+  const { confirm } = useConfirmation()
   const [contacts, setContacts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -56,7 +58,14 @@ export default function ContactsPage() {
   }, [currentPage, pageSize])
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this contact?')) return
+    const confirmed = await confirm({
+      title: 'Delete Contact',
+      message: 'Are you sure you want to delete this contact? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      type: 'danger',
+    })
+    if (!confirmed) return
 
     const { error } = await supabase.from('contacts').delete().eq('id', id)
     if (error) {

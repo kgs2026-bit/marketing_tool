@@ -5,9 +5,11 @@ import CampaignTable from '@/components/campaign-table'
 import CampaignBuilder from '@/components/campaign-builder'
 import { createClient } from '@/lib/supabase/browser-client'
 import { useToast } from '@/components/toast'
+import { useConfirmation } from '@/components/confirmation-provider'
 
 export default function CampaignsPage() {
   const { addToast } = useToast()
+  const { confirm } = useConfirmation()
   const [campaigns, setCampaigns] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isBuilderOpen, setIsBuilderOpen] = useState(false)
@@ -36,7 +38,14 @@ export default function CampaignsPage() {
   }, [])
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this campaign?')) return
+    const confirmed = await confirm({
+      title: 'Delete Campaign',
+      message: 'Are you sure you want to delete this campaign? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      type: 'danger',
+    })
+    if (!confirmed) return
 
     const { error } = await supabase.from('campaigns').delete().eq('id', id)
     if (error) {

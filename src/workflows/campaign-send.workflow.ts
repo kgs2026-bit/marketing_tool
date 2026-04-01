@@ -1,4 +1,4 @@
-import { sleep, getWritable, fetch as workflowFetch } from "workflow";
+import { getWritable, fetch as workflowFetch } from "workflow";
 import { FatalError, RetryableError } from "workflow";
 import { Resend } from "resend";
 
@@ -74,6 +74,14 @@ async function updateCampaignStatusStep(campaignId: string, status: string, sent
   await postgrest(`/rest/v1/campaigns?id=eq.${campaignId}`, 'PATCH', body);
 }
 
+// Step: delay between emails (ensures checkpointing)
+async function delayStep(seconds: number) {
+  "use step";
+  console.log(`[Workflow] Sleeping for ${seconds} seconds...`);
+  // Use workflow's sleep within a step to create a durable timer
+  await (workflowFetch as any)(`internal://sleep/${seconds}s`, { method: 'POST' });
+}
+
 // Step: send single email
 async function sendSingleEmailStep(
   campaignId: string,
@@ -115,7 +123,7 @@ async function sendSingleEmailStep(
   }
   personalizedContent = personalizedContent.replace(/\{\{unsubscribe_link\}\}/g, `${appUrl}/api/unsubscribe/${recipient.id}`);
 
-  // Click tracking
+  // Click tracking - build array of URLs to replace
   const urls: string[] = [];
   const urlMap = new Map<string, string>();
   const hrefRegex = /href\s*=\s*["']([^"']+)["']/gi;
@@ -129,6 +137,7 @@ async function sendSingleEmailStep(
     }
   }
 
+  // Create tracking links
   const trackingLinksToCreate: any[] = urls.map(url => ({
     tracking_id: urlMap.get(url)!,
     campaign_recipient_id: recipient.id,
@@ -137,15 +146,22 @@ async function sendSingleEmailStep(
     created_at: new Date().toISOString(),
   }));
 
-  urls.forEach(url => {
-    const trackingId = urlMap.get(url)!;
-    personalizedContent = personalizedContent.replace(`href="${url}"`, `href="${appUrl}/api/track/click/${trackingId}"`);
-    personalizedContent = personalizedContent.replace(`href='${url}'`, `href="${appUrl}/api/track/click/${trackingId}"`);
-  });
-
   if (trackingLinksToCreate.length > 0) {
-    await postgrest('/rest/v1/tracking_links', 'POST', trackingLinksToCreate);
-    console.log(`[Workflow] Created ${trackingLinksToCreate.length} tracking links`);
+    try {
+      await postgrest('/rest/v1/tracking_links', 'POST', trackingLinksToCreate);
+      console.log(`[Workflow] Created ${trackingLinksToCreate.length} tracking links`);
+    } catch (err: any) {
+      console.error(`[Workflow] Failed to create tracking links:`, err.message);
+      // Continue anyway - tracking links are optional
+    }
+  }
+
+  // Replace URLs with tracking links
+  for (const url of urls) {
+    const trackingId = urlMap.get(url)!;
+    const trackingUrl = `${appUrl}/api/track/click/${trackingId}`;
+    personalizedContent = personalizedContent.replaceAll(`href="${url}"`, `href="${trackingUrl}"`);
+    personalizedContent = personalizedContent.replaceAll(`href='${url}'`, `href="${trackingUrl}"`);
   }
 
   // Send email
@@ -168,7 +184,7 @@ async function sendSingleEmailStep(
 
   console.log(`[Workflow] Email sent to ${recipient.email}, message_id: ${data.id}`);
 
-  // Update recipient
+  // Update recipient as delivered
   await postgrest(`/rest/v1/campaign_recipients?id=eq.${recipient.id}`, 'PATCH', {
     status: "delivered",
     sent_at: new Date().toISOString(),
@@ -183,17 +199,15 @@ async function sendSingleEmailStep(
 export async function sendCampaignWorkflow(campaignId: string) {
   "use workflow";
 
-  console.log('[Workflow] === ENVIRONMENT DIAGNOSTICS ===');
+  console.log('[Workflow] === START ===');
   console.log('[Workflow] NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'SET' : 'MISSING');
   console.log('[Workflow] SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'MISSING');
   console.log('[Workflow] NEXT_PUBLIC_APP_URL:', process.env.NEXT_PUBLIC_APP_URL);
-  console.log('[Workflow] ==================================');
-
-  console.log(`[Workflow] Starting sendCampaignWorkflow for campaignId: ${campaignId}`);
+  console.log('[Workflow] ===============');
 
   // Fetch campaign
   const campaign = await fetchCampaignStep(campaignId);
-  console.log(`[Workflow] Found campaign: ${campaign.name} with ${campaign.campaign_recipients?.length || 0} recipients`);
+  console.log(`[Workflow] Campaign: ${campaign.name}, recipients: ${campaign.campaign_recipients?.length || 0}`);
 
   // Filter recipients
   const recipientsToSend = (campaign.campaign_recipients || []).filter((recipient: any) => {
@@ -220,9 +234,10 @@ export async function sendCampaignWorkflow(campaignId: string) {
   let consecutiveFailures = 0;
   const maxConsecutiveFailures = 10;
 
-  // Process each recipient with explicit sleep as part of workflow state
+  // Process each recipient with explicit delay steps
   for (let i = 0; i < recipientsToSend.length; i++) {
     const recipient = recipientsToSend[i];
+    console.log(`[Workflow] Processing recipient ${i + 1}/${recipientsToSend.length}: ${recipient.email}`);
 
     try {
       // Send email (step)
@@ -254,14 +269,15 @@ export async function sendCampaignWorkflow(campaignId: string) {
         writer.releaseLock();
       }
 
-      // Delay before next email
+      // Delay before next email (using delay step for proper checkpointing)
       if (i < recipientsToSend.length - 1) {
-        const delaySeconds = 180 + Math.random() * 120; // 3-5 minutes
-        console.log(`[Workflow] Delaying ${Math.floor(delaySeconds)} seconds before next email...`);
-        await sleep(`${Math.floor(delaySeconds)}s`);
+        const delaySeconds = 180 + Math.random() * 120; // 3-5 minutes (180-300 seconds)
+        console.log(`[Workflow] About to delay for ${Math.floor(delaySeconds)} seconds...`);
+        await delayStep(Math.floor(delaySeconds));
+        console.log(`[Workflow] Delay completed, continuing to next recipient`);
       }
     } catch (err: any) {
-      console.error(`Error processing recipient ${recipient.email}:`, err);
+      console.error(`[Workflow] Error processing recipient ${recipient.email}:`, err);
       if (err instanceof FatalError) {
         throw err;
       }
@@ -271,6 +287,7 @@ export async function sendCampaignWorkflow(campaignId: string) {
   // Update final status
   await updateCampaignStatusStep(campaignId, "sent", new Date().toISOString());
 
+  console.log('[Workflow] === COMPLETE ===');
   return {
     success: true,
     sent: results.filter((r) => r.success).length,

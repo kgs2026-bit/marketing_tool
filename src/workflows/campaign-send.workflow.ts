@@ -2,7 +2,7 @@ import { sleep, getWritable, fetch as workflowFetch } from "workflow";
 import { FatalError, RetryableError } from "workflow";
 import { Resend } from "resend";
 
-// Step: make a PostgREST call using workflow fetch within the step
+// Step: make a PostgREST call using workflow fetch
 async function postgrest(path: string, method: string = 'GET', body?: any, headers: Record<string, string> = {}) {
   "use step";
 
@@ -44,15 +44,26 @@ async function fetchCampaign(campaignId: string) {
   return data[0];
 }
 
-// Step: fetch auth user from auth schema
+// Step: fetch auth user via Supabase Auth Admin API
 async function fetchAuthUser(userId: string) {
   "use step";
-  // auth.users requires schema=auth parameter
-  const data = await postgrest(
-    `/rest/v1/auth/users?id=eq.${userId}&select=email,user_metadata&schema=auth`,
-    'GET'
-  );
-  return data ? data[0] : null;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+  const response = await workflowFetch(`${supabaseUrl}/auth/v1/admin/users/${userId}`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${supabaseKey}`,
+      'apikey': supabaseKey,
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Auth API error ${response.status}: ${errorText}`);
+  }
+
+  return response.json();
 }
 
 // Step: update campaign status
@@ -78,6 +89,13 @@ async function updateRecipientStatus(recipientId: string, status: string, extras
   await postgrest(`/rest/v1/campaign_recipients?id=eq.${recipientId}`, 'PATCH', body);
 }
 
+// Helper: generate UUID in a step
+async function generateUUID(): Promise<string> {
+  "use step";
+  // @ts-ignore - crypto available in steps
+  return crypto.randomUUID();
+}
+
 // Step: send single email
 async function sendSingleEmail(
   campaignId: string,
@@ -89,114 +107,93 @@ async function sendSingleEmail(
 ) {
   "use step";
 
-  // Override global fetch so Resend uses the workflow fetch
-  const originalFetch = global.fetch;
-  global.fetch = workflowFetch;
+  console.log(`[Workflow] Starting email send to ${recipient.email} (campaign: ${campaignId})`);
 
-  try {
-    console.log(`[Workflow] Starting email send to ${recipient.email} (campaign: ${campaignId})`);
+  // Fetch contact data
+  const contactData = await postgrest(
+    `/rest/v1/contacts?id=eq.${recipient.contact_id}&select=*`,
+    'GET'
+  );
+  const contact = contactData[0];
 
-    // Fetch contact data
-    const contactData = await postgrest(
-      `/rest/v1/contacts?id=eq.${recipient.contact_id}&select=*`,
-      'GET'
-    );
-    const contact = contactData[0];
+  // Personalize content
+  let htmlContent = campaign.templates?.html_content || campaign.html_content || "";
+  const trackingPixel = `<img src="${appUrl}/api/track/open/${recipient.id}" width="1" height="1" alt="" style="display:none;" />`;
 
-    // Personalize content
-    let htmlContent = campaign.templates?.html_content || campaign.html_content || "";
-    const trackingPixel = `<img src="${appUrl}/api/track/open/${recipient.id}" width="1" height="1" alt="" style="display:none;" />`;
-
-    if (htmlContent.includes("</body>")) {
-      htmlContent = htmlContent.replace("</body>", `${trackingPixel}</body>`);
-    } else if (htmlContent.includes("</html>")) {
-      htmlContent = htmlContent.replace("</html>", `${trackingPixel}</html>`);
-    } else {
-      htmlContent = htmlContent + trackingPixel;
-    }
-
-    let personalizedContent = htmlContent;
-    if (contact) {
-      personalizedContent = personalizedContent.replace(/\{\{first_name\}\}/g, contact.first_name || "");
-      personalizedContent = personalizedContent.replace(/\{\{last_name\}\}/g, contact.last_name || "");
-      personalizedContent = personalizedContent.replace(/\{\{email\}\}/g, contact.email || "");
-      personalizedContent = personalizedContent.replace(/\{\{company\}\}/g, contact.company || "");
-    }
-    personalizedContent = personalizedContent.replace(/\{\{unsubscribe_link\}\}/g, `${appUrl}/api/unsubscribe/${recipient.id}`);
-
-    // Add click tracking
-    const urls: string[] = [];
-    const urlMap = new Map<string, string>();
-    const hrefRegex = /href\s*=\s*["']([^"']+)["']/gi;
-    let match;
-    while ((match = hrefRegex.exec(htmlContent)) !== null) {
-      const url = match[1];
-      if (url.startsWith("http") && !urlMap.has(url)) {
-        const trackingId = crypto.randomUUID();
-        urlMap.set(url, trackingId);
-        urls.push(url);
-      }
-    }
-
-    let trackingLinksToCreate: any[] = [];
-    for (const url of urls) {
-      const trackingId = urlMap.get(url)!;
-      trackingLinksToCreate.push({
-        tracking_id: trackingId,
-        campaign_recipient_id: recipient.id,
-        original_url: url,
-        click_count: 0,
-        created_at: new Date().toISOString(),
-      });
-      personalizedContent = personalizedContent.replace(`href="${url}"`, `href="${appUrl}/api/track/click/${trackingId}"`);
-      personalizedContent = personalizedContent.replace(`href='${url}'`, `href="${appUrl}/api/track/click/${trackingId}"`);
-    }
-
-    await insertTrackingLinks(trackingLinksToCreate);
-
-    const subject = (campaign.templates?.subject || campaign.subject || "").replace(/\{\{first_name\}\}/g, contact?.first_name || "");
-
-    const fromAddress = userEmail ? `${senderName} <${userEmail}>` : `${senderName} <${process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev"}>`;
-
-    const resend = new Resend(process.env.RESEND_API_KEY!);
-    const { data, error } = await resend.emails.send({
-      from: fromAddress,
-      to: [recipient.email],
-      subject,
-      html: personalizedContent,
-      headers: {
-        "X-Campaign-ID": campaignId,
-        "X-Recipient-ID": recipient.id,
-      },
-    });
-
-    if (error) throw error;
-
-    console.log(`[Workflow] Email sent to ${recipient.email}, message_id: ${data.id}`);
-
-    await updateRecipientStatus(recipient.id, "delivered", {
-      sent_at: new Date().toISOString(),
-      delivered_at: new Date().toISOString(),
-      message_id: data.id,
-    });
-
-    return { success: true, recipientId: recipient.id, messageId: data.id };
-  } catch (err: any) {
-    console.error(`[Workflow] Failed to send to ${recipient.email}:`, err);
-
-    if (err.message?.includes("rate") || err.message?.includes("429")) {
-      throw new RetryableError(`Rate limited: ${err.message}`, { retryAfter: "5m" });
-    }
-
-    await updateRecipientStatus(recipient.id, "bounced", {
-      bounced_at: new Date().toISOString(),
-      bounce_reason: err.message,
-    });
-
-    return { success: false, email: recipient.email, error: err.message };
-  } finally {
-    global.fetch = originalFetch;
+  if (htmlContent.includes("</body>")) {
+    htmlContent = htmlContent.replace("</body>", `${trackingPixel}</body>`);
+  } else if (htmlContent.includes("</html>")) {
+    htmlContent = htmlContent.replace("</html>", `${trackingPixel}</html>`);
+  } else {
+    htmlContent = htmlContent + trackingPixel;
   }
+
+  let personalizedContent = htmlContent;
+  if (contact) {
+    personalizedContent = personalizedContent.replace(/\{\{first_name\}\}/g, contact.first_name || "");
+    personalizedContent = personalizedContent.replace(/\{\{last_name\}\}/g, contact.last_name || "");
+    personalizedContent = personalizedContent.replace(/\{\{email\}\}/g, contact.email || "");
+    personalizedContent = personalizedContent.replace(/\{\{company\}\}/g, contact.company || "");
+  }
+  personalizedContent = personalizedContent.replace(/\{\{unsubscribe_link\}\}/g, `${appUrl}/api/unsubscribe/${recipient.id}`);
+
+  // Add click tracking
+  const urls: string[] = [];
+  const urlMap = new Map<string, string>();
+  const hrefRegex = /href\s*=\s*["']([^"']+)["']/gi;
+  let match;
+  while ((match = hrefRegex.exec(htmlContent)) !== null) {
+    const url = match[1];
+    if (url.startsWith("http") && !urlMap.has(url)) {
+      const trackingId = crypto.randomUUID();
+      urlMap.set(url, trackingId);
+      urls.push(url);
+    }
+  }
+
+  let trackingLinksToCreate: any[] = [];
+  for (const url of urls) {
+    const trackingId = urlMap.get(url)!;
+    trackingLinksToCreate.push({
+      tracking_id: trackingId,
+      campaign_recipient_id: recipient.id,
+      original_url: url,
+      click_count: 0,
+      created_at: new Date().toISOString(),
+    });
+    personalizedContent = personalizedContent.replace(`href="${url}"`, `href="${appUrl}/api/track/click/${trackingId}"`);
+    personalizedContent = personalizedContent.replace(`href='${url}'`, `href="${appUrl}/api/track/click/${trackingId}"`);
+  }
+
+  await insertTrackingLinks(trackingLinksToCreate);
+
+  const subject = (campaign.templates?.subject || campaign.subject || "").replace(/\{\{first_name\}\}/g, contact?.first_name || "");
+
+  const fromAddress = userEmail ? `${senderName} <${userEmail}>` : `${senderName} <${process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev"}>`;
+
+  const resend = new Resend(process.env.RESEND_API_KEY!);
+  const { data, error } = await resend.emails.send({
+    from: fromAddress,
+    to: [recipient.email],
+    subject,
+    html: personalizedContent,
+    headers: {
+      "X-Campaign-ID": campaignId,
+      "X-Recipient-ID": recipient.id,
+    },
+  });
+
+  if (error) throw error;
+
+  console.log(`[Workflow] Email sent to ${recipient.email}, message_id: ${data.id}`);
+
+  await updateRecipientStatus(recipient.id, "delivered", {
+    sent_at: new Date().toISOString(),
+    delivered_at: new Date().toISOString(),
+    message_id: data.id,
+  });
+
+  return { success: true, recipientId: recipient.id, messageId: data.id };
 }
 
 // Main workflow

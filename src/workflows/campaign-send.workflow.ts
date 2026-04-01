@@ -1,15 +1,78 @@
-import { sleep, createHook, getWritable, fetch as workflowFetch } from "workflow";
+import { sleep, getWritable, fetch as workflowFetch } from "workflow";
 import { FatalError, RetryableError } from "workflow";
-import { createClient } from '@supabase/supabase-js';
 import { Resend } from "resend";
 
-// Helper to create Supabase client that uses workflow's fetch
-function createWorkflowSupabaseClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { fetcher: workflowFetch as any }
+// Helper to make PostgREST calls with workflow fetch
+async function postgrest(path: string, method: string = 'GET', body?: any, headers: Record<string, string> = {}) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+  const url = `${supabaseUrl}${path}`;
+  const defaultHeaders: Record<string, string> = {
+    'Authorization': `Bearer ${supabaseKey}`,
+    'apikey': supabaseKey,
+    'Content-Type': 'application/json',
+    'Prefer': 'return=representation',
+  };
+
+  const response = await workflowFetch(url, {
+    method,
+    headers: { ...defaultHeaders, ...headers },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`PostgREST error ${response.status}: ${errorText}`);
+  }
+
+  return response.json();
+}
+
+// Step: fetch campaign with recipients
+async function fetchCampaign(campaignId: string) {
+  "use step";
+  const data = await postgrest(
+    `/rest/v1/campaigns?id=eq.${campaignId}&select=*,templates(id,name,subject,html_content),campaign_recipients(id,email,contact_id,contacts(id,email,first_name,last_name,company))`,
+    'GET'
   );
+  if (!data || data.length === 0) {
+    throw new FatalError(`Campaign not found: ${campaignId}`);
+  }
+  return data[0];
+}
+
+// Step: fetch auth user
+async function fetchAuthUser(userId: string) {
+  "use step";
+  const data = await postgrest(
+    `/rest/v1/auth/users?id=eq.${userId}&select=email,user_metadata`,
+    'GET'
+  );
+  return data ? data[0] : null;
+}
+
+// Step: update campaign status
+async function updateCampaignStatus(campaignId: string, status: string, sentAt?: string) {
+  "use step";
+  const body: any = { status };
+  if (sentAt) body.sent_at = sentAt;
+  await postgrest(`/rest/v1/campaigns?id=eq.${campaignId}`, 'PATCH', body);
+}
+
+// Step: insert tracking links
+async function insertTrackingLinks(links: any[]) {
+  "use step";
+  if (links.length === 0) return;
+  await postgrest('/rest/v1/tracking_links', 'POST', links);
+  console.log(`[Workflow] Created ${links.length} tracking links`);
+}
+
+// Step: update recipient status
+async function updateRecipientStatus(recipientId: string, status: string, extras: any = {}) {
+  "use step";
+  const body = { status, ...extras };
+  await postgrest(`/rest/v1/campaign_recipients?id=eq.${recipientId}`, 'PATCH', body);
 }
 
 // Helper function to generate UUID in a step
@@ -17,22 +80,6 @@ async function generateUUID(): Promise<string> {
   "use step";
   // @ts-ignore - crypto is available in steps
   return crypto.randomUUID();
-}
-
-// Step: insert tracking links
-async function insertTrackingLinks(links: any[]) {
-  "use step";
-  if (links.length === 0) return;
-  const supabase = createWorkflowSupabaseClient();
-  await supabase.from("tracking_links").insert(links);
-  console.log(`[Workflow] Created ${links.length} tracking links`);
-}
-
-// Step: update recipient status
-async function updateRecipientStatus(recipientId: string, status: string, extras: any = {}) {
-  "use step";
-  const supabase = createWorkflowSupabaseClient();
-  await supabase.from("campaign_recipients").update({ status, ...extras }).eq("id", recipientId);
 }
 
 // Step function to send a single email
@@ -46,22 +93,21 @@ async function sendSingleEmail(
 ) {
   "use step";
 
-  // Set global fetch for Resend (uses global fetch internally)
+  // Override global fetch within this step so Resend uses workflow fetch
+  // @ts-ignore
+  const originalFetch = global.fetch;
   // @ts-ignore
   global.fetch = workflowFetch;
-
-  const supabase = createWorkflowSupabaseClient();
-  const resend = new Resend(process.env.RESEND_API_KEY!);
 
   try {
     console.log(`[Workflow] Starting email send to ${recipient.email} (campaign: ${campaignId})`);
 
     // Fetch contact data
-    const { data: contact } = await supabase
-      .from("contacts")
-      .select("*")
-      .eq("id", recipient.contact_id)
-      .single();
+    const contactData = await postgrest(
+      `/rest/v1/contacts?id=eq.${recipient.contact_id}&select=*`,
+      'GET'
+    );
+    const contact = contactData[0];
 
     // Personalize content
     let htmlContent = campaign.templates?.html_content || campaign.html_content || "";
@@ -163,53 +209,11 @@ async function sendSingleEmail(
     });
 
     return { success: false, email: recipient.email, error: err.message };
+  } finally {
+    // Restore original fetch
+    // @ts-ignore
+    global.fetch = originalFetch;
   }
-}
-
-// Step: fetch campaign with recipients
-async function fetchCampaign(campaignId: string) {
-  "use step";
-  const supabase = createWorkflowSupabaseClient();
-  const { data, error } = await supabase
-    .from("campaigns")
-    .select(`
-      *,
-      templates (id, name, subject, html_content),
-      campaign_recipients (
-        id,
-        email,
-        contact_id,
-        contacts (id, email, first_name, last_name, company)
-      )
-    `)
-    .eq("id", campaignId)
-    .single();
-
-  if (error || !data) {
-    throw new FatalError(`Campaign not found: ${campaignId}`);
-  }
-  return data;
-}
-
-// Step: fetch auth user
-async function fetchAuthUser(userId: string) {
-  "use step";
-  const supabase = createWorkflowSupabaseClient();
-  const { data } = await supabase
-    .from("auth.users")
-    .select("email, user_metadata")
-    .eq("id", userId)
-    .single();
-  return data;
-}
-
-// Step: update campaign status
-async function updateCampaignStatus(campaignId: string, status: string, sentAt?: string) {
-  "use step";
-  const supabase = createWorkflowSupabaseClient();
-  const update: any = { status };
-  if (sentAt) update.sent_at = sentAt;
-  await supabase.from("campaigns").update(update).eq("id", campaignId);
 }
 
 // Main workflow
@@ -239,26 +243,28 @@ export async function sendCampaignWorkflow(campaignId: string) {
     return { success: true, sent: 0, failed: 0, total: 0 };
   }
 
-  // Get user email and sender name (step)
-  const authUser = await fetchAuthUser(campaign.user_id);
-  const userEmail = authUser?.email || "";
-  const senderName =
-    campaign.sender_name ||
-    authUser?.user_metadata?.full_name ||
-    authUser?.user_metadata?.name ||
-    userEmail?.split("@")[0] ||
-    "User";
-
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
   const results: any[] = [];
   let consecutiveFailures = 0;
   const maxConsecutiveFailures = 10;
+  let userEmail = "";
+  let senderName = "User";
 
-  // Send emails one by one with delays
   for (let i = 0; i < recipientsToSend.length; i++) {
     const recipient = recipientsToSend[i];
 
     try {
+      // Get fresh auth user data within the step
+      if (i === 0) {
+        const authUser = await fetchAuthUser(campaign.user_id);
+        userEmail = authUser?.email || "";
+        senderName =
+          campaign.sender_name ||
+          authUser?.user_metadata?.full_name ||
+          authUser?.user_metadata?.name ||
+          (userEmail ? userEmail.split("@")[0] : "User");
+      }
+
       const result = await sendSingleEmail(campaignId, recipient, appUrl, campaign, senderName, userEmail);
       results.push(result);
 
@@ -272,7 +278,6 @@ export async function sendCampaignWorkflow(campaignId: string) {
         throw new FatalError(`Too many consecutive failures (${maxConsecutiveFailures}), stopping campaign`);
       }
 
-      // Log progress to workflow stream
       const writable = getWritable();
       const writer = writable.getWriter();
       try {
@@ -302,7 +307,6 @@ export async function sendCampaignWorkflow(campaignId: string) {
   const successCount = results.filter((r) => r.success).length;
   const failureCount = results.length - successCount;
 
-  // Mark campaign as sent
   await updateCampaignStatus(campaignId, "sent", new Date().toISOString());
 
   return {

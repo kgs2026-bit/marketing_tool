@@ -85,7 +85,7 @@ export default function Navigation() {
                 <span className="text-sm text-gray-700">{user.email}</span>
                 <button
                   onClick={handleSignOut}
-                  className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded-md transition-colors"
+                  className="px-3 py-1.5 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 shadow-sm transition-colors"
                 >
                   Sign out
                 </button>

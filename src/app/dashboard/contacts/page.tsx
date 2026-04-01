@@ -133,21 +133,21 @@ export default function ContactsPage() {
       {!loading && totalPages > 1 && (
         <div className="flex items-center justify-between mt-6 bg-white p-4 rounded-lg shadow">
           <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-600">Show:</span>
+            <span className="text-sm font-medium text-gray-700">Show:</span>
             <select
               value={pageSize}
               onChange={(e) => {
                 setPageSize(parseInt(e.target.value))
                 setCurrentPage(1)
               }}
-              className="border border-gray-300 rounded px-2 py-1 text-sm"
+              className="px-2 py-1.5 text-sm bg-white border border-gray-300 rounded-lg hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700 shadow-sm"
             >
               <option value={10}>10</option>
               <option value={20}>20</option>
               <option value={50}>50</option>
               <option value={100}>100</option>
             </select>
-            <span className="text-sm text-gray-600">per page</span>
+            <span className="text-sm font-medium text-gray-700">per page</span>
           </div>
 
           <div className="text-sm text-gray-600">
@@ -159,7 +159,7 @@ export default function ContactsPage() {
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 shadow-sm transition-colors"
             >
               Previous
             </button>
@@ -180,10 +180,10 @@ export default function ContactsPage() {
                   <button
                     key={pageNum}
                     onClick={() => setCurrentPage(pageNum)}
-                    className={`w-8 h-8 text-sm rounded ${
+                    className={`w-8 h-8 text-sm font-medium rounded-lg transition-colors ${
                       currentPage === pageNum
-                        ? 'bg-blue-600 text-white'
-                        : 'border border-gray-300 hover:bg-gray-50'
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                     }`}
                   >
                     {pageNum}
@@ -194,7 +194,7 @@ export default function ContactsPage() {
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 shadow-sm transition-colors"
             >
               Next
             </button>

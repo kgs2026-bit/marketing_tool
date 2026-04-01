@@ -470,7 +470,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                   <select
                     value={pageSize}
                     onChange={handlePageSizeChange}
-                    className="text-sm border border-gray-300 rounded px-2 py-1"
+                    className="px-2 py-1.5 text-sm bg-white border border-gray-300 rounded-lg hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700 shadow-sm"
                   >
                     <option value={10}>10 per page</option>
                     <option value={20}>20 per page</option>
@@ -569,7 +569,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                         type="button"
                         onClick={() => goToPage(currentPage - 1)}
                         disabled={currentPage === 1}
-                        className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-3 py-1.5 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 shadow-sm transition-colors"
                       >
                         Previous
                       </button>
@@ -591,10 +591,10 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                               key={pageNum}
                               type="button"
                               onClick={() => goToPage(pageNum)}
-                              className={`w-8 h-8 text-sm rounded ${
+                              className={`w-8 h-8 text-sm font-medium rounded-lg transition-colors ${
                                 currentPage === pageNum
-                                  ? 'bg-blue-600 text-white'
-                                  : 'border border-gray-300 hover:bg-gray-50'
+                                  ? 'bg-blue-600 text-white shadow-md'
+                                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                               }`}
                             >
                               {pageNum}
@@ -606,7 +606,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                         type="button"
                         onClick={() => goToPage(currentPage + 1)}
                         disabled={currentPage === totalPages}
-                        className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-3 py-1.5 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 shadow-sm transition-colors"
                       >
                         Next
                       </button>

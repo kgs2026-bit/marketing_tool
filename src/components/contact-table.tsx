@@ -17,9 +17,22 @@ interface ContactTableProps {
   loading: boolean
   onEdit: (contact: Contact) => void
   onDelete: (id: string) => void
+  selectedContacts: Set<string>
+  onContactSelect: (id: string, selected: boolean) => void
+  onSelectAll: () => void
+  onClearSelection: () => void
 }
 
-export default function ContactTable({ contacts, loading, onEdit, onDelete }: ContactTableProps) {
+export default function ContactTable({
+  contacts,
+  loading,
+  onEdit,
+  onDelete,
+  selectedContacts,
+  onContactSelect,
+  onSelectAll,
+  onClearSelection
+}: ContactTableProps) {
   if (loading) {
     return (
       <div className="bg-card shadow rounded-lg overflow-hidden">
@@ -39,6 +52,15 @@ export default function ContactTable({ contacts, loading, onEdit, onDelete }: Co
         <table className="min-w-full divide-y divide-border dark:divide-gray-700">
           <thead className="bg-muted dark:bg-gray-800">
             <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <input
+                  type="checkbox"
+                  checked={contacts.length > 0 && selectedContacts.size === contacts.length}
+                  onChange={onSelectAll}
+                  className="h-4 w-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
+                  title={selectedContacts.size === contacts.length ? 'Deselect all' : 'Select all'}
+                />
+              </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Name
               </th>
@@ -65,13 +87,21 @@ export default function ContactTable({ contacts, loading, onEdit, onDelete }: Co
           <tbody className="bg-card divide-y divide-border dark:divide-gray-700">
             {contacts.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                <td colSpan={8} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                   No contacts yet. Add your first contact!
                 </td>
               </tr>
             ) : (
               contacts.map((contact) => (
                 <tr key={contact.id} className="hover:bg-muted dark:hover:bg-gray-800">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <input
+                      type="checkbox"
+                      checked={selectedContacts.has(contact.id)}
+                      onChange={(e) => onContactSelect(contact.id, e.target.checked)}
+                      className="h-4 w-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
+                    />
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-foreground">
                       {contact.first_name || contact.last_name

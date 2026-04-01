@@ -1,13 +1,38 @@
-import { sleep, createHook, getWritable } from "workflow";
+import { sleep, createHook, getWritable, fetch as workflowFetch } from "workflow";
 import { FatalError, RetryableError } from "workflow";
-import { createSupabaseServerClient } from "@/lib/supabase/server-only";
+import { createClient } from '@supabase/supabase-js';
 import { Resend } from "resend";
+
+// Helper to create Supabase client that uses workflow's fetch
+function createWorkflowSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { fetch: workflowFetch as any }
+  );
+}
 
 // Helper function to generate UUID in a step
 async function generateUUID(): Promise<string> {
   "use step";
   // @ts-ignore - crypto is available in steps
   return crypto.randomUUID();
+}
+
+// Step: insert tracking links
+async function insertTrackingLinks(links: any[]) {
+  "use step";
+  if (links.length === 0) return;
+  const supabase = createWorkflowSupabaseClient();
+  await supabase.from("tracking_links").insert(links);
+  console.log(`[Workflow] Created ${links.length} tracking links`);
+}
+
+// Step: update recipient status
+async function updateRecipientStatus(recipientId: string, status: string, extras: any = {}) {
+  "use step";
+  const supabase = createWorkflowSupabaseClient();
+  await supabase.from("campaign_recipients").update({ status, ...extras }).eq("id", recipientId);
 }
 
 // Step function to send a single email
@@ -21,7 +46,11 @@ async function sendSingleEmail(
 ) {
   "use step";
 
-  const supabase = createSupabaseServerClient();
+  // Set global fetch for Resend (uses global fetch internally)
+  // @ts-ignore
+  global.fetch = workflowFetch;
+
+  const supabase = createWorkflowSupabaseClient();
   const resend = new Resend(process.env.RESEND_API_KEY!);
 
   try {
@@ -57,9 +86,8 @@ async function sendSingleEmail(
 
     // Add click tracking - find all URLs first
     const urls: string[] = [];
-    const urlMap = new Map<string, string>(); // original URL -> tracking ID
+    const urlMap = new Map<string, string>();
 
-    // Extract all HTTP URLs from href attributes
     const hrefRegex = /href\s*=\s*["']([^"']+)["']/gi;
     let match;
     while ((match = hrefRegex.exec(htmlContent)) !== null) {
@@ -71,7 +99,6 @@ async function sendSingleEmail(
       }
     }
 
-    // Replace all URLs with tracking links
     let trackingLinksToCreate: any[] = [];
     for (const url of urls) {
       const trackingId = urlMap.get(url)!;
@@ -87,20 +114,16 @@ async function sendSingleEmail(
         `href="${appUrl}/api/track/click/${trackingId}"`
       );
       personalizedContent = personalizedContent.replace(
-        `href='${url}'`,
+        `href='${url}"`,
         `href="${appUrl}/api/track/click/${trackingId}"`
       );
     }
 
     // Insert tracking links
-    if (trackingLinksToCreate.length > 0) {
-      await supabase.from("tracking_links").insert(trackingLinksToCreate);
-      console.log(`[Workflow] Created ${trackingLinksToCreate.length} tracking links`);
-    }
+    await insertTrackingLinks(trackingLinksToCreate);
 
     const subject = (campaign.templates?.subject || campaign.subject || "").replace(/\{\{first_name\}\}/g, contact?.first_name || "");
 
-    // Send email via Resend
     const fromAddress = userEmail ? `${senderName} <${userEmail}>` : `${senderName} <${process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev"}>`;
 
     const { data, error } = await resend.emails.send({
@@ -119,58 +142,35 @@ async function sendSingleEmail(
     console.log(`[Workflow] Email sent to ${recipient.email}, message_id: ${data.id}`);
 
     // Update recipient as delivered
-    await supabase
-      .from("campaign_recipients")
-      .update({
-        status: "delivered",
-        sent_at: new Date().toISOString(),
-        delivered_at: new Date().toISOString(),
-        message_id: data.id,
-      })
-      .eq("id", recipient.id);
+    await updateRecipientStatus(recipient.id, "delivered", {
+      sent_at: new Date().toISOString(),
+      delivered_at: new Date().toISOString(),
+      message_id: data.id,
+    });
 
     return { success: true, recipientId: recipient.id, messageId: data.id };
   } catch (err: any) {
     console.error(`[Workflow] Failed to send to ${recipient.email}:`, err);
 
-    // Determine if error is retryable
     if (err.message?.includes("rate") || err.message?.includes("429")) {
       throw new RetryableError(`Rate limited: ${err.message}`, { retryAfter: "5m" });
     }
 
     // Update recipient as bounced
-    await supabase
-      .from("campaign_recipients")
-      .update({
-        status: "bounced",
-        bounced_at: new Date().toISOString(),
-        bounce_reason: err.message,
-      })
-      .eq("id", recipient.id);
+    await updateRecipientStatus(recipient.id, "bounced", {
+      bounced_at: new Date().toISOString(),
+      bounce_reason: err.message,
+    });
 
     return { success: false, email: recipient.email, error: err.message };
   }
 }
 
-// Main workflow
-export async function sendCampaignWorkflow(campaignId: string) {
-  "use workflow";
-
-  console.log('[Workflow] === ENVIRONMENT DIAGNOSTICS ===');
-  console.log('[Workflow] NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'SET' : 'MISSING');
-  console.log('[Workflow] SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'MISSING');
-  console.log('[Workflow] NEXT_PUBLIC_APP_URL:', process.env.NEXT_PUBLIC_APP_URL);
-  console.log('[Workflow] ==================================');
-
-  console.log(`[Workflow] Starting sendCampaignWorkflow for campaignId: ${campaignId}`);
-
-  const supabase = createSupabaseServerClient();
-
-  console.log(`[Workflow] Attempting to fetch campaign ${campaignId} from Supabase`);
-  console.log(`[Workflow] Supabase URL: ${process.env.NEXT_PUBLIC_SUPABASE_URL}`);
-
-  // Fetch campaign with recipients
-  const { data: campaign, error: campaignError } = await supabase
+// Step: fetch campaign with recipients
+async function fetchCampaign(campaignId: string) {
+  "use step";
+  const supabase = createWorkflowSupabaseClient();
+  const { data, error } = await supabase
     .from("campaigns")
     .select(`
       *,
@@ -185,24 +185,47 @@ export async function sendCampaignWorkflow(campaignId: string) {
     .eq("id", campaignId)
     .single();
 
-  if (campaignError || !campaign) {
-    console.error(`[Workflow] Campaign fetch error:`, campaignError);
-    console.error(`[Workflow] Error details:`, {
-      message: campaignError?.message,
-      code: campaignError?.code,
-      details: campaignError?.details,
-    });
-    console.error(`[Workflow] Campaign not found: ${campaignId}. This could mean:`);
-    console.error(`  - The campaign ID is incorrect`);
-    console.error(`  - The campaign was deleted`);
-    console.error(`  - Workflow is connecting to a different Supabase project (check env vars)`);
-    console.error(`  - Service role key is missing or invalid`);
-    console.error(`[Debug] Checking env vars:`);
-    console.error(`  NEXT_PUBLIC_SUPABASE_URL: ${process.env.NEXT_PUBLIC_SUPABASE_URL ? 'SET' : 'MISSING'}`);
-    console.error(`  SUPABASE_SERVICE_ROLE_KEY: ${process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'MISSING'}`);
+  if (error || !data) {
     throw new FatalError(`Campaign not found: ${campaignId}`);
   }
+  return data;
+}
 
+// Step: fetch auth user
+async function fetchAuthUser(userId: string) {
+  "use step";
+  const supabase = createWorkflowSupabaseClient();
+  const { data } = await supabase
+    .from("auth.users")
+    .select("email, user_metadata")
+    .eq("id", userId)
+    .single();
+  return data;
+}
+
+// Step: update campaign status
+async function updateCampaignStatus(campaignId: string, status: string, sentAt?: string) {
+  "use step";
+  const supabase = createWorkflowSupabaseClient();
+  const update: any = { status };
+  if (sentAt) update.sent_at = sentAt;
+  await supabase.from("campaigns").update(update).eq("id", campaignId);
+}
+
+// Main workflow
+export async function sendCampaignWorkflow(campaignId: string) {
+  "use workflow";
+
+  console.log('[Workflow] === ENVIRONMENT DIAGNOSTICS ===');
+  console.log('[Workflow] NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'SET' : 'MISSING');
+  console.log('[Workflow] SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'MISSING');
+  console.log('[Workflow] NEXT_PUBLIC_APP_URL:', process.env.NEXT_PUBLIC_APP_URL);
+  console.log('[Workflow] ==================================');
+
+  console.log(`[Workflow] Starting sendCampaignWorkflow for campaignId: ${campaignId}`);
+
+  // Fetch campaign (step)
+  const campaign = await fetchCampaign(campaignId);
   console.log(`[Workflow] Found campaign: ${campaign.name} with ${campaign.campaign_recipients?.length || 0} recipients`);
 
   // Filter out unsubscribed contacts
@@ -212,20 +235,12 @@ export async function sendCampaignWorkflow(campaignId: string) {
   });
 
   if (recipientsToSend.length === 0) {
-    await supabase
-      .from("campaigns")
-      .update({ status: "sent", sent_at: new Date().toISOString() })
-      .eq("id", campaignId);
+    await updateCampaignStatus(campaignId, "sent", new Date().toISOString());
     return { success: true, sent: 0, failed: 0, total: 0 };
   }
 
-  // Get user email and sender name
-  const { data: authUser } = await supabase
-    .from("auth.users")
-    .select("email, user_metadata")
-    .eq("id", campaign.user_id)
-    .single();
-
+  // Get user email and sender name (step)
+  const authUser = await fetchAuthUser(campaign.user_id);
   const userEmail = authUser?.email || "";
   const senderName =
     campaign.sender_name ||
@@ -253,7 +268,6 @@ export async function sendCampaignWorkflow(campaignId: string) {
         consecutiveFailures++;
       }
 
-      // If too many consecutive failures, stop
       if (consecutiveFailures >= maxConsecutiveFailures) {
         throw new FatalError(`Too many consecutive failures (${maxConsecutiveFailures}), stopping campaign`);
       }
@@ -273,17 +287,14 @@ export async function sendCampaignWorkflow(campaignId: string) {
         writer.releaseLock();
       }
 
-      // Random delay between emails (3-5 minutes) to avoid spam detection
-      // Skip delay for last email
       if (i < recipientsToSend.length - 1) {
-        const delaySeconds = 180 + Math.random() * 120; // 180-300 seconds
+        const delaySeconds = 180 + Math.random() * 120;
         await sleep(`${Math.floor(delaySeconds)}s`);
       }
     } catch (err: any) {
       console.error(`Error processing recipient ${recipient.email}:`, err);
-      // Continue to next recipient on non-fatal errors
       if (err instanceof FatalError) {
-        throw err; // Stop the workflow
+        throw err;
       }
     }
   }
@@ -291,14 +302,8 @@ export async function sendCampaignWorkflow(campaignId: string) {
   const successCount = results.filter((r) => r.success).length;
   const failureCount = results.length - successCount;
 
-  // Mark campaign as sent (or partially sent)
-  await supabase
-    .from("campaigns")
-    .update({
-      status: failureCount > 0 ? "sent" : "sent",
-      sent_at: new Date().toISOString(),
-    })
-    .eq("id", campaignId);
+  // Mark campaign as sent
+  await updateCampaignStatus(campaignId, "sent", new Date().toISOString());
 
   return {
     success: true,

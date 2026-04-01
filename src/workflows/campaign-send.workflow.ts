@@ -2,8 +2,10 @@ import { sleep, getWritable, fetch as workflowFetch } from "workflow";
 import { FatalError, RetryableError } from "workflow";
 import { Resend } from "resend";
 
-// Helper to make PostgREST calls with workflow fetch
+// Step: make a PostgREST call using workflow fetch within the step
 async function postgrest(path: string, method: string = 'GET', body?: any, headers: Record<string, string> = {}) {
+  "use step";
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
@@ -42,11 +44,12 @@ async function fetchCampaign(campaignId: string) {
   return data[0];
 }
 
-// Step: fetch auth user
+// Step: fetch auth user from auth schema
 async function fetchAuthUser(userId: string) {
   "use step";
+  // auth.users requires schema=auth parameter
   const data = await postgrest(
-    `/rest/v1/auth/users?id=eq.${userId}&select=email,user_metadata`,
+    `/rest/v1/auth/users?id=eq.${userId}&select=email,user_metadata&schema=auth`,
     'GET'
   );
   return data ? data[0] : null;
@@ -75,14 +78,7 @@ async function updateRecipientStatus(recipientId: string, status: string, extras
   await postgrest(`/rest/v1/campaign_recipients?id=eq.${recipientId}`, 'PATCH', body);
 }
 
-// Helper function to generate UUID in a step
-async function generateUUID(): Promise<string> {
-  "use step";
-  // @ts-ignore - crypto is available in steps
-  return crypto.randomUUID();
-}
-
-// Step function to send a single email
+// Step: send single email
 async function sendSingleEmail(
   campaignId: string,
   recipient: any,
@@ -93,10 +89,8 @@ async function sendSingleEmail(
 ) {
   "use step";
 
-  // Override global fetch within this step so Resend uses workflow fetch
-  // @ts-ignore
+  // Override global fetch so Resend uses the workflow fetch
   const originalFetch = global.fetch;
-  // @ts-ignore
   global.fetch = workflowFetch;
 
   try {
@@ -130,16 +124,15 @@ async function sendSingleEmail(
     }
     personalizedContent = personalizedContent.replace(/\{\{unsubscribe_link\}\}/g, `${appUrl}/api/unsubscribe/${recipient.id}`);
 
-    // Add click tracking - find all URLs first
+    // Add click tracking
     const urls: string[] = [];
     const urlMap = new Map<string, string>();
-
     const hrefRegex = /href\s*=\s*["']([^"']+)["']/gi;
     let match;
     while ((match = hrefRegex.exec(htmlContent)) !== null) {
       const url = match[1];
       if (url.startsWith("http") && !urlMap.has(url)) {
-        const trackingId = await generateUUID();
+        const trackingId = crypto.randomUUID();
         urlMap.set(url, trackingId);
         urls.push(url);
       }
@@ -155,17 +148,10 @@ async function sendSingleEmail(
         click_count: 0,
         created_at: new Date().toISOString(),
       });
-      personalizedContent = personalizedContent.replace(
-        `href="${url}"`,
-        `href="${appUrl}/api/track/click/${trackingId}"`
-      );
-      personalizedContent = personalizedContent.replace(
-        `href='${url}"`,
-        `href="${appUrl}/api/track/click/${trackingId}"`
-      );
+      personalizedContent = personalizedContent.replace(`href="${url}"`, `href="${appUrl}/api/track/click/${trackingId}"`);
+      personalizedContent = personalizedContent.replace(`href='${url}'`, `href="${appUrl}/api/track/click/${trackingId}"`);
     }
 
-    // Insert tracking links
     await insertTrackingLinks(trackingLinksToCreate);
 
     const subject = (campaign.templates?.subject || campaign.subject || "").replace(/\{\{first_name\}\}/g, contact?.first_name || "");
@@ -188,7 +174,6 @@ async function sendSingleEmail(
 
     console.log(`[Workflow] Email sent to ${recipient.email}, message_id: ${data.id}`);
 
-    // Update recipient as delivered
     await updateRecipientStatus(recipient.id, "delivered", {
       sent_at: new Date().toISOString(),
       delivered_at: new Date().toISOString(),
@@ -203,7 +188,6 @@ async function sendSingleEmail(
       throw new RetryableError(`Rate limited: ${err.message}`, { retryAfter: "5m" });
     }
 
-    // Update recipient as bounced
     await updateRecipientStatus(recipient.id, "bounced", {
       bounced_at: new Date().toISOString(),
       bounce_reason: err.message,
@@ -211,8 +195,6 @@ async function sendSingleEmail(
 
     return { success: false, email: recipient.email, error: err.message };
   } finally {
-    // Restore original fetch
-    // @ts-ignore
     global.fetch = originalFetch;
   }
 }
@@ -229,11 +211,9 @@ export async function sendCampaignWorkflow(campaignId: string) {
 
   console.log(`[Workflow] Starting sendCampaignWorkflow for campaignId: ${campaignId}`);
 
-  // Fetch campaign (step)
   const campaign = await fetchCampaign(campaignId);
   console.log(`[Workflow] Found campaign: ${campaign.name} with ${campaign.campaign_recipients?.length || 0} recipients`);
 
-  // Filter out unsubscribed contacts
   const recipientsToSend = (campaign.campaign_recipients || []).filter((recipient: any) => {
     const contact = recipient.contacts;
     return contact?.status !== "unsubscribed";
@@ -255,7 +235,6 @@ export async function sendCampaignWorkflow(campaignId: string) {
     const recipient = recipientsToSend[i];
 
     try {
-      // Get fresh auth user data within the step
       if (i === 0) {
         const authUser = await fetchAuthUser(campaign.user_id);
         userEmail = authUser?.email || "";
@@ -276,7 +255,7 @@ export async function sendCampaignWorkflow(campaignId: string) {
       }
 
       if (consecutiveFailures >= maxConsecutiveFailures) {
-        throw new FatalError(`Too many consecutive failures (${maxConsecutiveFailures}), stopping campaign`);
+        throw new FatalError(`${maxConsecutiveFailures} consecutive failures, stopping`);
       }
 
       const writable = getWritable();
@@ -305,15 +284,12 @@ export async function sendCampaignWorkflow(campaignId: string) {
     }
   }
 
-  const successCount = results.filter((r) => r.success).length;
-  const failureCount = results.length - successCount;
-
   await updateCampaignStatus(campaignId, "sent", new Date().toISOString());
 
   return {
     success: true,
-    sent: successCount,
-    failed: failureCount,
+    sent: results.filter((r) => r.success).length,
+    failed: results.filter((r) => !r.success).length,
     total: recipientsToSend.length,
     results,
   };

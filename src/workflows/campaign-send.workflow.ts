@@ -56,13 +56,26 @@ async function sendSingleEmail(
     }
     personalizedContent = personalizedContent.replace(/\{\{unsubscribe_link\}\}/g, `${appUrl}/api/unsubscribe/${recipient.id}`);
 
-    // Add click tracking
-    const trackingLinksToCreate: any[] = [];
-    personalizedContent = personalizedContent.replace(/href\s*=\s*["']([^"']+)["']/gi, (match: string, url: string) => {
-      if (!url.startsWith("http")) {
-        return match;
+    // Add click tracking - find all URLs first
+    const urls: string[] = [];
+    const urlMap = new Map<string, string>(); // original URL -> tracking ID
+
+    // Extract all HTTP URLs from href attributes
+    const hrefRegex = /href\s*=\s*["']([^"']+)["']/gi;
+    let match;
+    while ((match = hrefRegex.exec(htmlContent)) !== null) {
+      const url = match[1];
+      if (url.startsWith("http") && !urlMap.has(url)) {
+        const trackingId = await generateUUID();
+        urlMap.set(url, trackingId);
+        urls.push(url);
       }
-      const trackingId = await generateUUID();
+    }
+
+    // Replace all URLs with tracking links
+    let trackingLinksToCreate: any[] = [];
+    for (const url of urls) {
+      const trackingId = urlMap.get(url)!;
       trackingLinksToCreate.push({
         tracking_id: trackingId,
         campaign_recipient_id: recipient.id,
@@ -70,8 +83,15 @@ async function sendSingleEmail(
         click_count: 0,
         created_at: new Date().toISOString(),
       });
-      return `href="${appUrl}/api/track/click/${trackingId}"`;
-    });
+      personalizedContent = personalizedContent.replace(
+        `href="${url}"`,
+        `href="${appUrl}/api/track/click/${trackingId}"`
+      );
+      personalizedContent = personalizedContent.replace(
+        `href='${url}'`,
+        `href="${appUrl}/api/track/click/${trackingId}"`
+      );
+    }
 
     // Insert tracking links
     if (trackingLinksToCreate.length > 0) {

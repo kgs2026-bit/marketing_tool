@@ -1,63 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getRun } from 'workflow/api'
-import { createClientAction } from '@/lib/supabase/server'
+import { getRun, type Run } from 'workflow/api'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ runId: string }> }
 ) {
   const { runId } = await params
-  const supabase = await createClientAction()
 
   try {
     // Get workflow run status
-    const run = getRun(runId)
-
-    // Fetch campaign context if available
-    // Workflow arguments: [campaignId]
-    const campaignId = run.args?.[0] as string | undefined
-
-    let campaignInfo = null
-    if (campaignId) {
-      const { data: campaign } = await supabase
-        .from('campaigns')
-        .select('id, name, status, sent_at')
-        .eq('id', campaignId)
-        .single()
-      campaignInfo = campaign
-    }
+    const run = getRun(runId) as Run<any>
 
     // Get recent events from default stream (progress updates)
     const readable = run.getReadable()
     const events: any[] = []
 
-    // Consume available events (non-blocking)
-    while (true) {
-      const event = await readable.read()
-      if (event.done) break
-      events.push(event.value)
+    // Consume available events using Web Streams API
+    const reader = readable.getReader()
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        events.push(value)
+      }
+    } finally {
+      reader.releaseLock()
     }
 
-    // Determine overall status
+    // Determine overall status based on return value
     let status = 'running'
     if (run.returnValue !== undefined) {
       status = 'completed'
-    } else if (run.failed) {
-      status = 'failed'
-    } else if (run.stopped) {
-      status = 'stopped'
     }
 
     return NextResponse.json({
       runId,
       status,
-      createdAt: run.createdAt,
-      updatedAt: run.updatedAt,
-      campaign: campaignInfo,
       events: events.slice(-10), // last 10 events
       eventCount: events.length,
       hasReturnValue: run.returnValue !== undefined,
-    })
+    } as any)
   } catch (err: any) {
     console.error('Workflow status error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })

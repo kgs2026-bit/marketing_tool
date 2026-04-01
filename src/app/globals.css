@@ -23,12 +23,12 @@
 
 /* Dark mode */
 .dark {
-  --background: #0a0a0a;
-  --foreground: #ededed;
+  --background: #111111;
+  --foreground: #f5f5f5;
   --muted: #1f2937;
   --muted-foreground: #9ca3af;
-  --card: #171717;
-  --card-foreground: #ededed;
+  --card: #1a1a1a;
+  --card-foreground: #f5f5f5;
   --border: #374151;
   --input: #374151;
   --ring: #60a5fa;
@@ -111,14 +111,14 @@ body {
 }
 
 .ProseMirror a {
-  color: #2563eb;
+  color: var(--link-color, #2563eb);
   text-decoration: underline;
   cursor: pointer;
 }
 
 .ProseMirror code {
-  background-color: #f3f4f6;
-  color: #dc2626;
+  background-color: var(--code-bg, #f3f4f6);
+  color: var(--code-color, #dc2626);
   padding: 0.2em 0.4em;
   border-radius: 3px;
   font-family: monospace;
@@ -126,7 +126,7 @@ body {
 }
 
 .ProseMirror pre {
-  background-color: #f3f4f6;
+  background-color: var(--code-bg, #f3f4f6);
   padding: 0.75em 1em;
   border-radius: 0.5em;
   overflow-x: auto;
@@ -134,10 +134,10 @@ body {
 }
 
 .ProseMirror blockquote {
-  border-left: 3px solid #ddd;
+  border-left: 3px solid var(--border, #ddd);
   padding-left: 1em;
   margin: 0.5em 0;
-  color: #666;
+  color: var(--muted-foreground, #666);
 }
 
 .ProseMirror-focused {
@@ -146,9 +146,49 @@ body {
 
 /* Placeholder */
 .ProseMirror p.is-editor-empty:first-child::before {
-  color: #adb5bd;
+  color: var(--muted-foreground, #adb5bd);
   content: attr(data-placeholder);
   float: left;
   height: 0;
   pointer-events: none;
+}
+
+/* Dark mode overrides for ProseMirror */
+@media (prefers-color-scheme: dark) {
+  .ProseMirror a {
+    color: #60a5fa;
+  }
+
+  .ProseMirror code {
+    background-color: #1f2937;
+    color: #f87171;
+  }
+
+  .ProseMirror pre {
+    background-color: #1f2937;
+  }
+
+  .ProseMirror blockquote {
+    border-left-color: #4b5563;
+    color: #d1d5db;
+  }
+}
+
+/* Custom properties for dark mode (when .dark class is present) */
+.dark .ProseMirror a {
+  color: #60a5fa;
+}
+
+.dark .ProseMirror code {
+  background-color: #1f2937;
+  color: #f87171;
+}
+
+.dark .ProseMirror pre {
+  background-color: #1f2937;
+}
+
+.dark .ProseMirror blockquote {
+  border-left-color: #4b5563;
+  color: #d1d5db;
 }

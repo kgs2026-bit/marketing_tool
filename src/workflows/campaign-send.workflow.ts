@@ -89,6 +89,12 @@ async function updateRecipientStatus(recipientId: string, status: string, extras
   await postgrest(`/rest/v1/campaign_recipients?id=eq.${recipientId}`, 'PATCH', body);
 }
 
+// Step: delay between emails
+async function delayBetweenEmails(seconds: number) {
+  "use step";
+  await sleep(`${seconds}s`);
+}
+
 // Helper: generate UUID in a step
 async function generateUUID(): Promise<string> {
   "use step";
@@ -271,7 +277,7 @@ export async function sendCampaignWorkflow(campaignId: string) {
 
       if (i < recipientsToSend.length - 1) {
         const delaySeconds = 180 + Math.random() * 120;
-        await sleep(`${Math.floor(delaySeconds)}s`);
+        await delayBetweenEmails(Math.floor(delaySeconds));
       }
     } catch (err: any) {
       console.error(`Error processing recipient ${recipient.email}:`, err);

@@ -209,7 +209,7 @@ export async function POST(
             click_count: 0,
             created_at: new Date().toISOString()
           })
-          return `href="/api/track/click/${trackingId}"`
+          return `href="${appUrl}/api/track/click/${trackingId}"`
         })
 
         // Insert tracking links into DB (non-blocking if fails)

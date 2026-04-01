@@ -8,6 +8,7 @@ interface Stats {
   totalCampaigns: number
   campaignsSent: number
   totalEmailsDelivered: number
+  totalUnsubscribed: number
 }
 
 export default function DashboardStats() {
@@ -16,6 +17,7 @@ export default function DashboardStats() {
     totalCampaigns: 0,
     campaignsSent: 0,
     totalEmailsDelivered: 0,
+    totalUnsubscribed: 0,
   })
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
@@ -44,11 +46,18 @@ export default function DashboardStats() {
           .select('*', { count: 'exact', head: true })
           .eq('status', 'delivered')
 
+        // Get unsubscribed contacts
+        const { count: unsubscribedCount } = await supabase
+          .from('contacts')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'unsubscribed')
+
         setStats({
           totalContacts: contactsCount || 0,
           totalCampaigns: campaignsCount || 0,
           campaignsSent: sentCampaigns || 0,
           totalEmailsDelivered: deliveredCount || 0,
+          totalUnsubscribed: unsubscribedCount || 0,
         })
       } catch (error) {
         console.error('Error fetching stats:', error)
@@ -62,8 +71,8 @@ export default function DashboardStats() {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {[1, 2, 3, 4].map((i) => (
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+        {[1, 2, 3, 4, 5].map((i) => (
           <div key={i} className="bg-white p-6 rounded-lg shadow animate-pulse">
             <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
             <div className="h-8 bg-gray-200 rounded w-3/4"></div>
@@ -78,10 +87,11 @@ export default function DashboardStats() {
     { label: 'Total Campaigns', value: stats.totalCampaigns, icon: '📧' },
     { label: 'Campaigns Sent', value: stats.campaignsSent, icon: '🚀' },
     { label: 'Emails Delivered', value: stats.totalEmailsDelivered, icon: '✅' },
+    { label: 'Unsubscribed', value: stats.totalUnsubscribed, icon: '🚫' },
   ]
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
       {statItems.map((item) => (
         <div key={item.label} className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center justify-between">

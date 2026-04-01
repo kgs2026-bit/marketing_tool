@@ -39,15 +39,15 @@ export default function ConfirmationDialog({
   const buttonStyles = {
     danger: {
       confirm: 'bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white',
-      cancel: 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300',
+      cancel: 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600',
     },
     warning: {
       confirm: 'bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500 text-white',
-      cancel: 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300',
+      cancel: 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600',
     },
     info: {
       confirm: 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500 text-white',
-      cancel: 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300',
+      cancel: 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600',
     },
   }
 
@@ -87,15 +87,15 @@ export default function ConfirmationDialog({
 
         <span className="hidden sm:inline-block sm:h-screen sm:align-middle" aria-hidden="true">&#8203;</span>
 
-        <div className="relative inline-block transform overflow-hidden rounded-lg bg-white px-4 pt-5 pb-4 text-left align-bottom shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6 sm:align-middle">
+        <div className="relative inline-block transform overflow-hidden rounded-lg bg-background dark:bg-card px-4 pt-5 pb-4 text-left align-bottom shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6 sm:align-middle">
           <div className="sm:flex sm:items-start">
             <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
               <div className="flex items-center gap-3 mb-4">
                 {icons[type]}
-                <h3 className="text-lg font-medium text-gray-900" id="modal-title">{title}</h3>
+                <h3 className="text-lg font-medium text-foreground" id="modal-title">{title}</h3>
               </div>
               <div className="mt-2">
-                <p className="text-sm text-gray-500">{message}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{message}</p>
               </div>
             </div>
           </div>

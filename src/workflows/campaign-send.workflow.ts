@@ -1,8 +1,7 @@
 import { sleep, createHook, getWritable } from "workflow";
 import { FatalError, RetryableError } from "workflow";
-import { createClientAction } from "@/lib/supabase/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server-only";
 import { Resend } from "resend";
-import nodemailer from "nodemailer";
 
 // Helper function to generate UUID in a step
 async function generateUUID(): Promise<string> {
@@ -22,7 +21,7 @@ async function sendSingleEmail(
 ) {
   "use step";
 
-  const supabase = await createClientAction();
+  const supabase = createSupabaseServerClient();
   const resend = new Resend(process.env.RESEND_API_KEY!);
 
   try {
@@ -157,7 +156,7 @@ async function sendSingleEmail(
 export async function sendCampaignWorkflow(campaignId: string) {
   "use workflow";
 
-  const supabase = await createClientAction();
+  const supabase = createSupabaseServerClient();
 
   // Fetch campaign with recipients
   const { data: campaign, error: campaignError } = await supabase

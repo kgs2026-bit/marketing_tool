@@ -116,13 +116,25 @@ export async function POST(
     }
 
     // Update campaign status to sending
-    await supabase
+    const { data: updatedCampaign, error: updateError } = await supabase
       .from('campaigns')
       .update({ status: 'sending' })
       .eq('id', campaign.id)
+      .select()
+      .single()
+
+    if (updateError) {
+      console.error('Error updating campaign status:', updateError)
+    }
 
     // Start the workflow (runs in background, no timeout)
     const run = await start(sendCampaignWorkflow, [id])
+
+    // Store workflow run ID for tracking
+    await supabase
+      .from('campaigns')
+      .update({ workflow_run_id: run.runId })
+      .eq('id', campaign.id)
 
     return NextResponse.json({
       success: true,

@@ -44,11 +44,11 @@ export default function Navigation() {
 
   if (loading) {
     return (
-      <nav className="bg-white shadow">
+      <nav className="bg-background shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <span className="text-xl font-bold text-blue-600">EmailTool</span>
+              <span className="text-xl font-bold text-blue-600 dark:text-blue-400">EmailTool</span>
             </div>
           </div>
         </div>
@@ -57,11 +57,11 @@ export default function Navigation() {
   }
 
   return (
-    <nav className="bg-white shadow">
+    <nav className="bg-background dark:bg-card shadow">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
-            <Link href="/dashboard" className="text-xl font-bold text-blue-600">
+            <Link href="/dashboard" className="text-xl font-bold text-blue-600 dark:text-blue-400">
               EmailTool
             </Link>
           </div>
@@ -85,7 +85,7 @@ export default function Navigation() {
             {/* Theme Toggle */}
             <button
               onClick={() => setTheme(actualTheme === 'dark' ? 'light' : 'dark')}
-              className="p-2 rounded-lg bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 shadow-sm transition-colors"
+              className="p-2 rounded-lg bg-background dark:bg-card border border-gray-300 dark:border-gray-600 hover:bg-muted dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 shadow-sm transition-colors"
               title={actualTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
             >
               {actualTheme === 'dark' ? (
@@ -104,7 +104,7 @@ export default function Navigation() {
                 <span className="text-sm text-gray-700 dark:text-gray-300">{user.email}</span>
                 <button
                   onClick={handleSignOut}
-                  className="px-3 py-1.5 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 shadow-sm transition-colors dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                  className="px-3 py-1.5 text-sm font-medium bg-background dark:bg-card border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-muted dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 shadow-sm transition-colors"
                 >
                   Sign out
                 </button>
@@ -123,7 +123,7 @@ export default function Navigation() {
               className={`flex items-center px-3 py-2 rounded-md text-base font-medium ${
                 pathname === link.href || pathname.startsWith(link.href + '/')
                   ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800'
+                  : 'text-gray-600 dark:text-gray-300 hover:bg-muted dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
             >
               <span className="mr-3">{link.icon}</span>
@@ -133,7 +133,7 @@ export default function Navigation() {
           {user && (
             <button
               onClick={handleSignOut}
-              className="w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+              className="w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-600 dark:text-gray-300 hover:bg-muted dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200"
             >
               Sign out
             </button>

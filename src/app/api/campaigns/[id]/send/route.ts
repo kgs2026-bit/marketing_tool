@@ -4,14 +4,13 @@ import { Resend } from 'resend'
 import nodemailer from 'nodemailer'
 import { randomUUID } from 'node:crypto'
 
-const resend = new Resend(process.env.RESEND_API_KEY!)
-
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
   const supabase = await createClientAction()
+  const resend = new Resend(process.env.RESEND_API_KEY!)
 
   // Check for cron secret (for scheduled campaigns)
   const cronSecret = request.headers.get('x-cron-secret')

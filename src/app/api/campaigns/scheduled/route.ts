@@ -3,10 +3,9 @@ import { createClientAction } from '@/lib/supabase/server'
 import { Resend } from 'resend'
 import nodemailer from 'nodemailer'
 
-const resend = new Resend(process.env.RESEND_API_KEY!)
-
 export async function GET(request: NextRequest) {
   const supabase = await createClientAction()
+  const resend = new Resend(process.env.RESEND_API_KEY!)
 
   // This endpoint should be protected with a secret key for cron jobs
   const secret = request.nextUrl.searchParams.get('secret')

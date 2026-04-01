@@ -156,6 +156,12 @@ async function sendSingleEmail(
 export async function sendCampaignWorkflow(campaignId: string) {
   "use workflow";
 
+  console.log('[Workflow] === ENVIRONMENT DIAGNOSTICS ===');
+  console.log('[Workflow] NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'SET' : 'MISSING');
+  console.log('[Workflow] SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'MISSING');
+  console.log('[Workflow] NEXT_PUBLIC_APP_URL:', process.env.NEXT_PUBLIC_APP_URL);
+  console.log('[Workflow] ==================================');
+
   console.log(`[Workflow] Starting sendCampaignWorkflow for campaignId: ${campaignId}`);
 
   const supabase = createSupabaseServerClient();

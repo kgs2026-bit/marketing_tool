@@ -115,6 +115,14 @@ export async function POST(
       return NextResponse.json({ error: 'Failed to create recipients' }, { status: 500 })
     }
 
+    // Verify campaign still exists and we have recipient data before starting workflow
+    if (!campaign.recipient_list || campaign.recipient_list.length === 0) {
+      return NextResponse.json(
+        { error: 'Campaign has no recipients. Please add contacts first.' },
+        { status: 400 }
+      )
+    }
+
     // Update campaign status to sending
     const { data: updatedCampaign, error: updateError } = await supabase
       .from('campaigns')
@@ -125,7 +133,16 @@ export async function POST(
 
     if (updateError) {
       console.error('Error updating campaign status:', updateError)
+      return NextResponse.json({ error: 'Failed to update campaign status' }, { status: 500 })
     }
+
+    // Double-check the campaign still exists in DB (debug logging)
+    console.log('[Send] Starting workflow for campaign:', {
+      campaignId: id,
+      campaignName: campaign.name,
+      recipientCount: campaign.recipient_list.length,
+      userEmail: user.email,
+    })
 
     // Start the workflow (runs in background, no timeout)
     const run = await start(sendCampaignWorkflow, [id])
@@ -135,6 +152,8 @@ export async function POST(
       .from('campaigns')
       .update({ workflow_run_id: run.runId })
       .eq('id', campaign.id)
+
+    console.log('[Send] Workflow started:', { runId: run.runId, campaignId: id })
 
     return NextResponse.json({
       success: true,

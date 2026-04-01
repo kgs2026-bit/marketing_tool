@@ -156,6 +156,8 @@ async function sendSingleEmail(
 export async function sendCampaignWorkflow(campaignId: string) {
   "use workflow";
 
+  console.log(`[Workflow] Starting sendCampaignWorkflow for campaignId: ${campaignId}`);
+
   const supabase = createSupabaseServerClient();
 
   // Fetch campaign with recipients
@@ -175,8 +177,15 @@ export async function sendCampaignWorkflow(campaignId: string) {
     .single();
 
   if (campaignError || !campaign) {
+    console.error(`[Workflow] Campaign fetch error:`, campaignError);
+    console.error(`[Workflow] Campaign not found: ${campaignId}. This could mean:`);
+    console.error(`  - The campaign ID is incorrect`);
+    console.error(`  - The campaign was deleted`);
+    console.error(`  - Workflow is connecting to a different Supabase project (check env vars)`);
     throw new FatalError(`Campaign not found: ${campaignId}`);
   }
+
+  console.log(`[Workflow] Found campaign: ${campaign.name} with ${campaign.campaign_recipients?.length || 0} recipients`);
 
   // Filter out unsubscribed contacts
   const recipientsToSend = (campaign.campaign_recipients || []).filter((recipient: any) => {

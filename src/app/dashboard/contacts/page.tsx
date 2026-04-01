@@ -8,13 +8,25 @@ import { createClient } from '@/lib/supabase/browser-client'
 import { useToast } from '@/components/toast'
 import { useConfirmation } from '@/components/confirmation-provider'
 
+interface Contact {
+  id: string
+  email: string
+  first_name: string | null
+  last_name: string | null
+  phone: string | null
+  company: string | null
+  status: string
+  tags: string[]
+  created_at: string
+}
+
 export default function ContactsPage() {
   const { addToast } = useToast()
   const { confirm } = useConfirmation()
   const [contacts, setContacts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [editingContact, setEditingContact] = useState<any>(null)
+  const [editingContact, setEditingContact] = useState<Contact | null>(null)
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)

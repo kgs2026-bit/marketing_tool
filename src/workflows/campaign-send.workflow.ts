@@ -2,7 +2,7 @@ import { sleep, getWritable, fetch as workflowFetch } from "workflow";
 import { FatalError, RetryableError } from "workflow";
 import { Resend } from "resend";
 
-// Step: make a PostgREST call using workflow fetch
+// Step: make a PostgREST call
 async function postgrest(path: string, method: string = 'GET', body?: any, headers: Record<string, string> = {}) {
   "use step";
 
@@ -31,8 +31,8 @@ async function postgrest(path: string, method: string = 'GET', body?: any, heade
   return response.json();
 }
 
-// Step: fetch campaign with recipients
-async function fetchCampaign(campaignId: string) {
+// Step: fetch campaign
+async function fetchCampaignStep(campaignId: string) {
   "use step";
   const data = await postgrest(
     `/rest/v1/campaigns?id=eq.${campaignId}&select=*,templates(id,name,subject,html_content),campaign_recipients(id,email,contact_id,contacts(id,email,first_name,last_name,company))`,
@@ -44,8 +44,8 @@ async function fetchCampaign(campaignId: string) {
   return data[0];
 }
 
-// Step: fetch auth user via Supabase Auth Admin API
-async function fetchAuthUser(userId: string) {
+// Step: fetch auth user via Auth Admin API
+async function fetchAuthUserStep(userId: string) {
   "use step";
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -67,43 +67,15 @@ async function fetchAuthUser(userId: string) {
 }
 
 // Step: update campaign status
-async function updateCampaignStatus(campaignId: string, status: string, sentAt?: string) {
+async function updateCampaignStatusStep(campaignId: string, status: string, sentAt?: string) {
   "use step";
   const body: any = { status };
   if (sentAt) body.sent_at = sentAt;
   await postgrest(`/rest/v1/campaigns?id=eq.${campaignId}`, 'PATCH', body);
 }
 
-// Step: insert tracking links
-async function insertTrackingLinks(links: any[]) {
-  "use step";
-  if (links.length === 0) return;
-  await postgrest('/rest/v1/tracking_links', 'POST', links);
-  console.log(`[Workflow] Created ${links.length} tracking links`);
-}
-
-// Step: update recipient status
-async function updateRecipientStatus(recipientId: string, status: string, extras: any = {}) {
-  "use step";
-  const body = { status, ...extras };
-  await postgrest(`/rest/v1/campaign_recipients?id=eq.${recipientId}`, 'PATCH', body);
-}
-
-// Step: delay between emails
-async function delayBetweenEmails(seconds: number) {
-  "use step";
-  await sleep(`${seconds}s`);
-}
-
-// Helper: generate UUID in a step
-async function generateUUID(): Promise<string> {
-  "use step";
-  // @ts-ignore - crypto available in steps
-  return crypto.randomUUID();
-}
-
 // Step: send single email
-async function sendSingleEmail(
+async function sendSingleEmailStep(
   campaignId: string,
   recipient: any,
   appUrl: string,
@@ -113,9 +85,9 @@ async function sendSingleEmail(
 ) {
   "use step";
 
-  console.log(`[Workflow] Starting email send to ${recipient.email} (campaign: ${campaignId})`);
+  console.log(`[Workflow] Sending to ${recipient.email}`);
 
-  // Fetch contact data
+  // Fetch contact
   const contactData = await postgrest(
     `/rest/v1/contacts?id=eq.${recipient.contact_id}&select=*`,
     'GET'
@@ -143,7 +115,7 @@ async function sendSingleEmail(
   }
   personalizedContent = personalizedContent.replace(/\{\{unsubscribe_link\}\}/g, `${appUrl}/api/unsubscribe/${recipient.id}`);
 
-  // Add click tracking
+  // Click tracking
   const urls: string[] = [];
   const urlMap = new Map<string, string>();
   const hrefRegex = /href\s*=\s*["']([^"']+)["']/gi;
@@ -157,24 +129,27 @@ async function sendSingleEmail(
     }
   }
 
-  let trackingLinksToCreate: any[] = [];
-  for (const url of urls) {
+  const trackingLinksToCreate: any[] = urls.map(url => ({
+    tracking_id: urlMap.get(url)!,
+    campaign_recipient_id: recipient.id,
+    original_url: url,
+    click_count: 0,
+    created_at: new Date().toISOString(),
+  }));
+
+  urls.forEach(url => {
     const trackingId = urlMap.get(url)!;
-    trackingLinksToCreate.push({
-      tracking_id: trackingId,
-      campaign_recipient_id: recipient.id,
-      original_url: url,
-      click_count: 0,
-      created_at: new Date().toISOString(),
-    });
     personalizedContent = personalizedContent.replace(`href="${url}"`, `href="${appUrl}/api/track/click/${trackingId}"`);
     personalizedContent = personalizedContent.replace(`href='${url}'`, `href="${appUrl}/api/track/click/${trackingId}"`);
+  });
+
+  if (trackingLinksToCreate.length > 0) {
+    await postgrest('/rest/v1/tracking_links', 'POST', trackingLinksToCreate);
+    console.log(`[Workflow] Created ${trackingLinksToCreate.length} tracking links`);
   }
 
-  await insertTrackingLinks(trackingLinksToCreate);
-
+  // Send email
   const subject = (campaign.templates?.subject || campaign.subject || "").replace(/\{\{first_name\}\}/g, contact?.first_name || "");
-
   const fromAddress = userEmail ? `${senderName} <${userEmail}>` : `${senderName} <${process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev"}>`;
 
   const resend = new Resend(process.env.RESEND_API_KEY!);
@@ -193,7 +168,9 @@ async function sendSingleEmail(
 
   console.log(`[Workflow] Email sent to ${recipient.email}, message_id: ${data.id}`);
 
-  await updateRecipientStatus(recipient.id, "delivered", {
+  // Update recipient
+  await postgrest(`/rest/v1/campaign_recipients?id=eq.${recipient.id}`, 'PATCH', {
+    status: "delivered",
     sent_at: new Date().toISOString(),
     delivered_at: new Date().toISOString(),
     message_id: data.id,
@@ -214,41 +191,42 @@ export async function sendCampaignWorkflow(campaignId: string) {
 
   console.log(`[Workflow] Starting sendCampaignWorkflow for campaignId: ${campaignId}`);
 
-  const campaign = await fetchCampaign(campaignId);
+  // Fetch campaign
+  const campaign = await fetchCampaignStep(campaignId);
   console.log(`[Workflow] Found campaign: ${campaign.name} with ${campaign.campaign_recipients?.length || 0} recipients`);
 
+  // Filter recipients
   const recipientsToSend = (campaign.campaign_recipients || []).filter((recipient: any) => {
     const contact = recipient.contacts;
     return contact?.status !== "unsubscribed";
   });
 
   if (recipientsToSend.length === 0) {
-    await updateCampaignStatus(campaignId, "sent", new Date().toISOString());
+    await updateCampaignStatusStep(campaignId, "sent", new Date().toISOString());
     return { success: true, sent: 0, failed: 0, total: 0 };
   }
+
+  // Get user info
+  const authUser = await fetchAuthUserStep(campaign.user_id);
+  const userEmail = authUser?.email || "";
+  const senderName =
+    campaign.sender_name ||
+    authUser?.user_metadata?.full_name ||
+    authUser?.user_metadata?.name ||
+    (userEmail ? userEmail.split("@")[0] : "User");
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
   const results: any[] = [];
   let consecutiveFailures = 0;
   const maxConsecutiveFailures = 10;
-  let userEmail = "";
-  let senderName = "User";
 
+  // Process each recipient with explicit sleep as part of workflow state
   for (let i = 0; i < recipientsToSend.length; i++) {
     const recipient = recipientsToSend[i];
 
     try {
-      if (i === 0) {
-        const authUser = await fetchAuthUser(campaign.user_id);
-        userEmail = authUser?.email || "";
-        senderName =
-          campaign.sender_name ||
-          authUser?.user_metadata?.full_name ||
-          authUser?.user_metadata?.name ||
-          (userEmail ? userEmail.split("@")[0] : "User");
-      }
-
-      const result = await sendSingleEmail(campaignId, recipient, appUrl, campaign, senderName, userEmail);
+      // Send email (step)
+      const result = await sendSingleEmailStep(campaignId, recipient, appUrl, campaign, senderName, userEmail);
       results.push(result);
 
       if (result.success) {
@@ -261,6 +239,7 @@ export async function sendCampaignWorkflow(campaignId: string) {
         throw new FatalError(`${maxConsecutiveFailures} consecutive failures, stopping`);
       }
 
+      // Progress update
       const writable = getWritable();
       const writer = writable.getWriter();
       try {
@@ -275,9 +254,11 @@ export async function sendCampaignWorkflow(campaignId: string) {
         writer.releaseLock();
       }
 
+      // Delay before next email
       if (i < recipientsToSend.length - 1) {
-        const delaySeconds = 180 + Math.random() * 120;
-        await delayBetweenEmails(Math.floor(delaySeconds));
+        const delaySeconds = 180 + Math.random() * 120; // 3-5 minutes
+        console.log(`[Workflow] Delaying ${Math.floor(delaySeconds)} seconds before next email...`);
+        await sleep(`${Math.floor(delaySeconds)}s`);
       }
     } catch (err: any) {
       console.error(`Error processing recipient ${recipient.email}:`, err);
@@ -287,7 +268,8 @@ export async function sendCampaignWorkflow(campaignId: string) {
     }
   }
 
-  await updateCampaignStatus(campaignId, "sent", new Date().toISOString());
+  // Update final status
+  await updateCampaignStatusStep(campaignId, "sent", new Date().toISOString());
 
   return {
     success: true,

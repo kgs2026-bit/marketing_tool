@@ -25,7 +25,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
   const supabase = createClient()
   const [step, setStep] = useState(1)
   const [templates, setTemplates] = useState<any[]>([])
-  const [contacts, setContacts] = useState<any[]>([])
+  const [paginatedContacts, setPaginatedContacts] = useState<any[]>([]) // Contacts for current page
   const [loadingTemplates, setLoadingTemplates] = useState(false)
   const [loadingContacts, setLoadingContacts] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -33,6 +33,11 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
   const [senderEmail, setSenderEmail] = useState<string>('')
   const [senderName, setSenderName] = useState<string>('')
   const [defaultSenderName, setDefaultSenderName] = useState<string>('')
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+  const [totalContacts, setTotalContacts] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
   const [formData, setFormData] = useState({
     name: '',
     template_id: '',
@@ -76,11 +81,11 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
         setStep(1)
       }
       loadTemplates()
-      loadContacts()
+      loadContacts(1, pageSize) // Reset to page 1 when opening
       loadSenderInfo()
       loadDefaultSenderName()
     }
-  }, [isOpen, campaign])
+  }, [isOpen, campaign, pageSize])
 
   const loadSenderInfo = async () => {
     try {
@@ -135,16 +140,40 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
     }
   }
 
-  const loadContacts = async () => {
+  const loadContacts = async (page: number = currentPage, size: number = pageSize) => {
     setLoadingContacts(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
-        setContacts([])
+        setPaginatedContacts([])
+        setTotalContacts(0)
+        setTotalPages(0)
         return
       }
-      const { data } = await supabase.from('contacts').select('*').eq('user_id', user.id).eq('status', 'active')
-      setContacts(data || [])
+
+      // Get total count for pagination
+      const { count } = await supabase
+        .from('contacts')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+
+      const total = count || 0
+      setTotalContacts(total)
+      setTotalPages(Math.ceil(total / size))
+
+      // Get paginated contacts
+      const from = (page - 1) * size
+      const { data } = await supabase
+        .from('contacts')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .range(from, from + size - 1)
+
+      setPaginatedContacts(data || [])
+      setCurrentPage(page)
     } catch (error) {
       console.error('Error loading contacts:', error)
     } finally {
@@ -174,6 +203,44 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
         : [...prev.recipient_ids, contactId],
     }))
   }
+
+  const handleSelectAllOnPage = () => {
+    setFormData((prev) => {
+      const currentPageIds = paginatedContacts.map((c) => c.id)
+      const allSelected = currentPageIds.every((id) => prev.recipient_ids.includes(id))
+
+      if (allSelected) {
+        // Deselect all on this page
+        return {
+          ...prev,
+          recipient_ids: prev.recipient_ids.filter((id) => !currentPageIds.includes(id)),
+        }
+      } else {
+        // Select all on this page (avoid duplicates)
+        const newSelection = new Set([...prev.recipient_ids, ...currentPageIds])
+        return {
+          ...prev,
+          recipient_ids: Array.from(newSelection),
+        }
+      }
+    })
+  }
+
+  const goToPage = (page: number) => {
+    const validPage = Math.max(1, Math.min(page, totalPages))
+    loadContacts(validPage, pageSize)
+  }
+
+  const handlePageSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newSize = parseInt(e.target.value)
+    setPageSize(newSize)
+    setCurrentPage(1) // Reset to page 1, effect will reload
+  }
+
+  // Calculate how many contacts on current page are selected
+  const selectedOnPageCount = paginatedContacts.filter((c) =>
+    formData.recipient_ids.includes(c.id)
+  ).length
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault()
@@ -387,41 +454,163 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
           {step === 2 && (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Recipients ({formData.recipient_ids.length} selected)
-                </label>
-                <div className="border border-gray-300 rounded-md h-64 overflow-y-auto p-4">
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Select Recipients
+                  </label>
+                  <div className="text-sm text-gray-600">
+                    {formData.recipient_ids.length} total selected
+                    {selectedOnPageCount > 0 && selectedOnPageCount < paginatedContacts.length && (
+                      <span className="ml-2 text-gray-500">({selectedOnPageCount} on this page)</span>
+                    )}
+                  </div>
+                  {/* Page size selector */}
+                  <select
+                    value={pageSize}
+                    onChange={handlePageSizeChange}
+                    className="text-sm border border-gray-300 rounded px-2 py-1"
+                  >
+                    <option value={10}>10 per page</option>
+                    <option value={20}>20 per page</option>
+                    <option value={50}>50 per page</option>
+                    <option value={100}>100 per page</option>
+                  </select>
+                </div>
+
+                {/* Select All on current page checkbox */}
+                {!loadingContacts && paginatedContacts.length > 0 && (
+                  <div className="mb-2 flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={
+                        paginatedContacts.length > 0 &&
+                        selectedOnPageCount === paginatedContacts.length
+                      }
+                      onChange={handleSelectAllOnPage}
+                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mr-2"
+                    />
+                    <label className="text-sm text-gray-700 cursor-pointer">
+                      Select all on this page ({paginatedContacts.length} contacts)
+                      {selectedOnPageCount === paginatedContacts.length && (
+                        <span className="ml-2 text-green-600">✓ All selected</span>
+                      )}
+                    </label>
+                  </div>
+                )}
+
+                {/* Contacts list */}
+                <div className="border border-gray-300 rounded-md overflow-hidden">
                   {loadingContacts ? (
-                    <div className="text-center text-gray-500">Loading contacts...</div>
-                  ) : contacts.length === 0 ? (
-                    <div className="text-center text-gray-500">
+                    <div className="h-64 flex items-center justify-center text-gray-500">
+                      Loading contacts...
+                    </div>
+                  ) : paginatedContacts.length === 0 ? (
+                    <div className="h-64 flex items-center justify-center text-gray-500">
                       No contacts yet. Add contacts first.
                       <br />
-                      <a href="/contacts" className="text-blue-600 hover:underline">
+                      <a href="/contacts" className="text-blue-600 hover:underline ml-2">
                         Go to Contacts
                       </a>
                     </div>
                   ) : (
-                    <div className="space-y-2">
-                      {contacts.map((contact) => (
-                        <label
-                          key={contact.id}
-                          className="flex items-center space-x-3 cursor-pointer p-2 rounded hover:bg-gray-50 transition-colors"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={formData.recipient_ids.includes(contact.id)}
-                            onChange={() => handleContactToggle(contact.id)}
-                            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                          />
-                          <span className="text-sm text-gray-900">
-                            {contact.first_name} {contact.last_name} - <span className="font-medium text-gray-700">{contact.email}</span>
-                          </span>
-                        </label>
-                      ))}
-                    </div>
+                    <>
+                      {/* Table header */}
+                      <div className="bg-gray-50 grid grid-cols-12 gap-2 px-4 py-2 border-b text-xs font-medium text-gray-500 uppercase">
+                        <div className="col-span-1"></div>
+                        <div className="col-span-4">Name</div>
+                        <div className="col-span-4">Email</div>
+                        <div className="col-span-3">Company</div>
+                      </div>
+
+                      {/* Table rows */}
+                      <div className="max-h-80 overflow-y-auto">
+                        {paginatedContacts.map((contact) => (
+                          <label
+                            key={contact.id}
+                            className="grid grid-cols-12 gap-2 px-4 py-3 border-b hover:bg-gray-50 cursor-pointer items-center"
+                          >
+                            <div className="col-span-1">
+                              <input
+                                type="checkbox"
+                                checked={formData.recipient_ids.includes(contact.id)}
+                                onChange={() => handleContactToggle(contact.id)}
+                                className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                              />
+                            </div>
+                            <div className="col-span-4 text-sm text-gray-900 truncate">
+                              {contact.first_name || contact.last_name
+                                ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || '—'
+                                : '—'}
+                            </div>
+                            <div className="col-span-4 text-sm text-gray-700 truncate">
+                              {contact.email}
+                            </div>
+                            <div className="col-span-3 text-sm text-gray-500 truncate">
+                              {contact.company || '—'}
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </>
                   )}
                 </div>
+
+                {/* Pagination controls */}
+                {!loadingContacts && totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-3">
+                    <div className="text-sm text-gray-600">
+                      Showing {(currentPage - 1) * pageSize + 1}-
+                      {Math.min(currentPage * pageSize, totalContacts)} of {totalContacts} contacts
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => goToPage(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Previous
+                      </button>
+                      <div className="flex items-center space-x-1">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          let pageNum
+                          if (totalPages <= 5) {
+                            pageNum = i + 1
+                          } else if (currentPage <= 3) {
+                            pageNum = i + 1
+                          } else if (currentPage >= totalPages - 2) {
+                            pageNum = totalPages - 4 + i
+                          } else {
+                            pageNum = currentPage - 2 + i
+                          }
+
+                          return (
+                            <button
+                              key={pageNum}
+                              type="button"
+                              onClick={() => goToPage(pageNum)}
+                              className={`w-8 h-8 text-sm rounded ${
+                                currentPage === pageNum
+                                  ? 'bg-blue-600 text-white'
+                                  : 'border border-gray-300 hover:bg-gray-50'
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => goToPage(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Email Provider Selection */}

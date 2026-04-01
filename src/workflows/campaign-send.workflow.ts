@@ -2,6 +2,13 @@ import { sleep, fetch as workflowFetch } from "workflow";
 import { FatalError, RetryableError } from "workflow";
 import { Resend } from "resend";
 
+// Helper: Normalize URL to avoid double slashes
+function normalizeUrl(base: string, path: string): string {
+  const normalizedBase = base.endsWith('/') ? base.slice(0, -1) : base
+  const normalizedPath = path.startsWith('/') ? path.slice(1) : path
+  return `${normalizedBase}/${normalizedPath}`
+}
+
 // Helper: PostgREST call (used inside steps)
 async function postgrest(path: string, method: string = 'GET', body?: any, headers: Record<string, string> = {}) {
   "use step";
@@ -98,7 +105,7 @@ async function sendSingleEmailStep(
 
     // Personalize content
     let htmlContent = campaign.templates?.html_content || campaign.html_content || "";
-    const trackingPixel = `<img src="${appUrl}/api/track/open/${recipient.id}" width="1" height="1" alt="" style="display:none;" />`;
+    const trackingPixel = `<img src="${normalizeUrl(appUrl, `/api/track/open/${recipient.id}`)}" width="1" height="1" alt="" style="display:none;" />`;
 
     if (htmlContent.includes("</body>")) {
       htmlContent = htmlContent.replace("</body>", `${trackingPixel}</body>`);
@@ -115,7 +122,7 @@ async function sendSingleEmailStep(
       personalizedContent = personalizedContent.replace(/\{\{email\}\}/g, contact.email || "");
       personalizedContent = personalizedContent.replace(/\{\{company\}\}/g, contact.company || "");
     }
-    personalizedContent = personalizedContent.replace(/\{\{unsubscribe_link\}\}/g, `${appUrl}/api/unsubscribe/${recipient.id}`);
+    personalizedContent = personalizedContent.replace(/\{\{unsubscribe_link\}\}/g, normalizeUrl(appUrl, `/api/unsubscribe/${recipient.id}`));
 
     // Click tracking - find all href URLs
     const urls: string[] = [];
@@ -158,7 +165,7 @@ async function sendSingleEmailStep(
     let replacedCount = 0;
     for (const url of urls) {
       const trackingId = urlMap.get(url)!;
-      const trackingUrl = `${appUrl}/api/track/click/${trackingId}`;
+      const trackingUrl = normalizeUrl(appUrl, `/api/track/click/${trackingId}`);
       const count1 = (personalizedContent.match(new RegExp(`href="${url}"`, 'g')) || []).length;
       const count2 = (personalizedContent.match(new RegExp(`href='${url}'`, 'g')) || []).length;
       personalizedContent = personalizedContent.replaceAll(`href="${url}"`, `href="${trackingUrl}"`);

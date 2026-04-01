@@ -12,18 +12,36 @@ export default function ContactsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingContact, setEditingContact] = useState<any>(null)
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+  const [totalContacts, setTotalContacts] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
   const supabase = createClient()
 
-  const fetchContacts = async () => {
+  const fetchContacts = async (page: number = 1, size: number = pageSize) => {
     setLoading(true)
     try {
+      // Get total count
+      const { count } = await supabase
+        .from('contacts')
+        .select('*', { count: 'exact', head: true })
+        .order('created_at', { ascending: false })
+
+      const total = count || 0
+      setTotalContacts(total)
+      setTotalPages(Math.ceil(total / size))
+
+      // Get paginated contacts
+      const from = (page - 1) * size
       const { data, error } = await supabase
         .from('contacts')
         .select('*')
         .order('created_at', { ascending: false })
+        .range(from, from + size - 1)
 
       if (error) throw error
       setContacts(data || [])
+      setCurrentPage(page)
     } catch (error) {
       console.error('Error fetching contacts:', error)
     } finally {
@@ -32,8 +50,8 @@ export default function ContactsPage() {
   }
 
   useEffect(() => {
-    fetchContacts()
-  }, [])
+    fetchContacts(currentPage, pageSize)
+  }, [currentPage, pageSize])
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this contact?')) return
@@ -42,7 +60,7 @@ export default function ContactsPage() {
     if (error) {
       alert('Error deleting contact: ' + error.message)
     } else {
-      fetchContacts()
+      fetchContacts(currentPage, pageSize)
     }
   }
 
@@ -58,7 +76,7 @@ export default function ContactsPage() {
 
   const handleSave = () => {
     handleCloseModal()
-    fetchContacts()
+    fetchContacts(currentPage, pageSize)
   }
 
   return (
@@ -99,6 +117,79 @@ export default function ContactsPage() {
         onDelete={handleDelete}
       />
 
+      {/* Pagination */}
+      {!loading && totalPages > 1 && (
+        <div className="flex items-center justify-between mt-6 bg-white p-4 rounded-lg shadow">
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-600">Show:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(parseInt(e.target.value))
+                setCurrentPage(1)
+              }}
+              className="border border-gray-300 rounded px-2 py-1 text-sm"
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+            <span className="text-sm text-gray-600">per page</span>
+          </div>
+
+          <div className="text-sm text-gray-600">
+            Showing {totalContacts > 0 ? (currentPage - 1) * pageSize + 1 : 0}-
+            {Math.min(currentPage * pageSize, totalContacts)} of {totalContacts} contacts
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <div className="flex items-center space-x-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum
+                if (totalPages <= 5) {
+                  pageNum = i + 1
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i
+                } else {
+                  pageNum = currentPage - 2 + i
+                }
+
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`w-8 h-8 text-sm rounded ${
+                      currentPage === pageNum
+                        ? 'bg-blue-600 text-white'
+                        : 'border border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                )
+              })}
+            </div>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+
       <ContactModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
@@ -110,7 +201,7 @@ export default function ContactsPage() {
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
         onImportComplete={() => {
-          fetchContacts()
+          fetchContacts(currentPage, pageSize)
           setIsImportModalOpen(false)
         }}
       />

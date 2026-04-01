@@ -182,13 +182,28 @@ export default function AnalyticsPage() {
     setCurrentPages(prev => ({ ...prev, [campaignId]: page }))
   }
 
+  const getStatusBadge = (status: string) => {
+    const styles: Record<string, string> = {
+      draft: 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300',
+      scheduled: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400',
+      sending: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400',
+      sent: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400',
+      cancelled: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400',
+      delivered: 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300',
+      opened: 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300',
+      clicked: 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-400',
+      bounced: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400',
+    }
+    return styles[status] || 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300'
+  }
+
   if (loading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold text-gray-900">Analytics</h1>
+        <h1 className="text-3xl font-bold text-foreground">Analytics</h1>
         <div className="animate-pulse space-y-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-32 bg-gray-200 rounded"></div>
+            <div key={i} className="h-32 bg-gray-200 dark:bg-gray-800 rounded"></div>
           ))}
         </div>
       </div>
@@ -198,72 +213,72 @@ export default function AnalyticsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Analytics</h1>
-        <p className="mt-2 text-gray-600">Track your email campaign performance</p>
+        <h1 className="text-3xl font-bold text-foreground">Analytics</h1>
+        <p className="mt-2 text-gray-600 dark:text-gray-400">Track your email campaign performance</p>
       </div>
 
       {stats.length === 0 ? (
-        <div className="bg-white p-12 rounded-lg shadow text-center">
-          <p className="text-gray-500 mb-4">No campaign data yet</p>
-          <a href="/campaigns" className="text-blue-600 hover:text-blue-500">
+        <div className="bg-background dark:bg-card p-12 rounded-lg shadow text-center">
+          <p className="text-gray-500 dark:text-gray-400 mb-4">No campaign data yet</p>
+          <a href="/campaigns" className="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300">
             Create your first campaign →
           </a>
         </div>
       ) : (
         <div className="grid gap-6">
           {stats.map(({ campaign, total_sent, delivered, opened, clicked, bounced, recipients }) => (
-            <div key={campaign.id} className="bg-white p-6 rounded-lg shadow">
+            <div key={campaign.id} className="bg-background dark:bg-card p-6 rounded-lg shadow">
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900">{campaign.name}</h3>
-                  <p className="text-sm text-gray-500">
+                  <h3 className="text-lg font-medium text-foreground">{campaign.name}</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
                     Sent: {campaign.sent_at ? new Date(campaign.sent_at).toLocaleDateString() : 'N/A'}
                   </p>
                 </div>
-                <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
+                <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 rounded-full text-sm">
                   {campaign.status}
                 </span>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                  <div className="text-2xl font-bold text-gray-900">{total_sent}</div>
-                  <div className="text-sm text-gray-600">Total Sent</div>
+                <div className="text-center p-4 bg-muted dark:bg-gray-800 rounded-lg">
+                  <div className="text-2xl font-bold text-foreground">{total_sent}</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Total Sent</div>
                 </div>
-                <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600">{delivered}</div>
-                  <div className="text-sm text-blue-600">
+                <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{delivered}</div>
+                  <div className="text-sm text-blue-600 dark:text-blue-400">
                     Delivered ({calculateRate(delivered, total_sent)}%)
                   </div>
                 </div>
-                <div className="text-center p-4 bg-green-50 rounded-lg">
-                  <div className="text-2xl font-bold text-green-600">{opened}</div>
-                  <div className="text-sm text-green-600">
+                <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">{opened}</div>
+                  <div className="text-sm text-green-600 dark:text-green-400">
                     Opened ({calculateRate(opened, delivered)}%)
                   </div>
                 </div>
-                <div className="text-center p-4 bg-purple-50 rounded-lg">
-                  <div className="text-2xl font-bold text-purple-600">{clicked}</div>
-                  <div className="text-sm text-purple-600">
+                <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                  <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{clicked}</div>
+                  <div className="text-sm text-purple-600 dark:text-purple-400">
                     Clicked ({calculateRate(clicked, opened)}%)
                   </div>
                 </div>
-                <div className="text-center p-4 bg-red-50 rounded-lg">
-                  <div className="text-2xl font-bold text-red-600">{bounced}</div>
-                  <div className="text-sm text-red-600">
+                <div className="text-center p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                  <div className="text-2xl font-bold text-red-600 dark:text-red-400">{bounced}</div>
+                  <div className="text-sm text-red-600 dark:text-red-400">
                     Bounced ({calculateRate(bounced, total_sent)}%)
                   </div>
                 </div>
               </div>
 
               {/* Recipients Table */}
-              <div className="mt-6 border-t pt-4">
+              <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4">
                 <div className="flex justify-between items-center mb-3">
-                  <h4 className="font-medium text-gray-900">Recipients ({recipients.length})</h4>
+                  <h4 className="font-medium text-foreground">Recipients ({recipients.length})</h4>
                   <select
                     value={getPageSize(campaign.id)}
                     onChange={(e) => setPageSize(campaign.id, parseInt(e.target.value))}
-                    className="px-2 py-1.5 text-sm bg-white border border-gray-300 rounded-lg hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700 shadow-sm"
+                    className="px-2 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700 dark:text-gray-300 shadow-sm"
                   >
                     <option value={10}>10 per page</option>
                     <option value={20}>20 per page</option>
@@ -272,19 +287,19 @@ export default function AnalyticsPage() {
                   </select>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                  <table className="min-w-full divide-y divide-border dark:divide-gray-700">
+                    <thead className="bg-muted dark:bg-gray-800">
                       <tr>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sent</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Opened</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Clicked</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bounced</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Email</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sent</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Opened</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Clicked</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Bounced</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-background dark:bg-card divide-y divide-border dark:divide-gray-700">
                       {(() => {
                         const pageSize = getPageSize(campaign.id)
                         const currentPage = getCurrentPage(campaign.id)
@@ -298,25 +313,25 @@ export default function AnalyticsPage() {
                           const fullName = contact ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim() : '-'
                           return (
                             <tr key={rec.id}>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-foreground">
                                 {fullName}
                               </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{rec.email}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-foreground">{rec.email}</td>
                               <td className="px-4 py-3 whitespace-nowrap">
                                 <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(rec.status)}`}>
                                   {rec.status}
                                 </span>
                               </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                 {rec.sent_at ? new Date(rec.sent_at).toLocaleString() : '-'}
                               </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                 {rec.opened_at ? new Date(rec.opened_at).toLocaleString() : '-'}
                               </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                 {rec.clicked_at ? new Date(rec.clicked_at).toLocaleString() : '-'}
                               </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-red-600">
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-red-600 dark:text-red-400">
                                 {rec.bounce_reason || (rec.bounced_at ? 'Bounced' : '-')}
                               </td>
                             </tr>
@@ -335,14 +350,14 @@ export default function AnalyticsPage() {
 
                   return (
                     <div className="flex items-center justify-between mt-3">
-                      <div className="text-sm text-gray-600">
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
                         Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, recipients.length)} of {recipients.length} recipients
                       </div>
                       <div className="flex items-center space-x-2">
                         <button
                           onClick={() => setCurrentPage(campaign.id, Math.max(1, currentPage - 1))}
                           disabled={currentPage === 1}
-                          className="px-3 py-1.5 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 shadow-sm transition-colors"
+                          className="px-3 py-1.5 text-sm font-medium bg-background dark:bg-card border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-muted dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed text-foreground shadow-sm transition-colors"
                         >
                           Previous
                         </button>
@@ -366,7 +381,7 @@ export default function AnalyticsPage() {
                                 className={`w-8 h-8 text-sm font-medium rounded-lg transition-colors ${
                                   currentPage === pageNum
                                     ? 'bg-blue-600 text-white shadow-md'
-                                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                                    : 'bg-background dark:bg-card text-foreground border border-gray-300 dark:border-gray-600 hover:bg-muted dark:hover:bg-gray-800'
                                 }`}
                               >
                                 {pageNum}
@@ -377,7 +392,7 @@ export default function AnalyticsPage() {
                         <button
                           onClick={() => setCurrentPage(campaign.id, Math.min(totalPages, currentPage + 1))}
                           disabled={currentPage === totalPages}
-                          className="px-3 py-1.5 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 shadow-sm transition-colors"
+                          className="px-3 py-1.5 text-sm font-medium bg-background dark:bg-card border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-muted dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed text-foreground shadow-sm transition-colors"
                         >
                           Next
                         </button>

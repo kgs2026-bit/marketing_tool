@@ -343,13 +343,13 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto flex items-start justify-center py-8 z-50">
-      <div className="relative w-full max-w-4xl mx-auto p-5 bg-white shadow-xl rounded-lg max-h-[90vh] overflow-y-auto text-gray-900">
-        <div className="flex justify-between items-center mb-6 sticky top-0 bg-white pb-4">
-          <h3 className="text-lg font-medium text-gray-900">
+    <div className="fixed inset-0 bg-black/50 overflow-y-auto flex items-start justify-center py-8 z-50">
+      <div className="relative w-full max-w-4xl mx-auto p-5 bg-background dark:bg-card shadow-xl rounded-lg max-h-[90vh] overflow-y-auto text-foreground">
+        <div className="flex justify-between items-center mb-6 sticky top-0 bg-background dark:bg-card pb-4">
+          <h3 className="text-lg font-medium text-foreground">
             {campaign ? 'Edit Campaign' : 'Create Campaign'}
           </h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-500 text-2xl">
+          <button onClick={onClose} className="text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400 text-2xl">
             ✕
           </button>
         </div>
@@ -361,70 +361,69 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
               <div key={s} className="flex items-center">
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                    step >= s ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
+                    step >= s ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                   }`}
                 >
                   {s}
                 </div>
-                {s < 3 && <div className="w-20 h-1 mx-2 bg-gray-200 rounded" />}
+                {s < 3 && <div className="w-20 h-1 mx-2 bg-gray-200 dark:bg-gray-700 rounded" />}
               </div>
             ))}
           </div>
-          <div className="flex justify-between mt-2 text-sm text-gray-600">
+          <div className="flex justify-between mt-2 text-sm text-gray-600 dark:text-gray-400">
             <span>1. Choose Template</span>
             <span>2. Select Recipients</span>
             <span>3. Review & Send</span>
           </div>
         </div>
 
-        {error && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md">{error}</div>}
+        {error && <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-md">{error}</div>}
 
         <form onSubmit={handleSubmit}>
           {/* Step 1: Choose Template */}
           {step === 1 && (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Campaign Name *</label>
+                <label className="block text-sm font-medium text-foreground mb-2">Campaign Name *</label>
                 <input
                   type="text"
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="Enter campaign name"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                  style={{ color: '#000000' }}
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Template</label>
+                <label className="block text-sm font-medium text-foreground mb-2">Template</label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div
                     className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
                       !formData.template_id
-                        ? 'border-blue-500 bg-blue-100 shadow-md'
-                        : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50'
+                        ? 'border-blue-500 bg-blue-100 dark:bg-blue-900/30 shadow-md'
+                        : 'border-gray-300 dark:border-gray-600 hover:border-blue-400 hover:bg-muted dark:hover:bg-gray-800'
                     }`}
                     onClick={() => setFormData({ ...formData, template_id: '' })}
                   >
-                    <div className="font-medium text-gray-900 text-base">Custom Email</div>
-                    <div className="text-sm text-gray-600 mt-1">Write your own content from scratch</div>
+                    <div className="font-medium text-gray-900 dark:text-gray-100 text-base">Custom Email</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Write your own content from scratch</div>
                   </div>
                   {loadingTemplates ? (
-                    <div className="col-span-2 text-center py-8 text-gray-500">Loading templates...</div>
+                    <div className="col-span-2 text-center py-8 text-gray-500 dark:text-gray-400">Loading templates...</div>
                   ) : (
                     templates.map((template) => (
                       <div
                         key={template.id}
                         className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
                           formData.template_id === template.id
-                            ? 'border-blue-500 bg-blue-100 shadow-md'
-                            : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50'
+                            ? 'border-blue-500 bg-blue-100 dark:bg-blue-900/30 shadow-md'
+                            : 'border-gray-300 dark:border-gray-600 hover:border-blue-400 hover:bg-muted dark:hover:bg-gray-800'
                         }`}
                         onClick={() => handleTemplateSelect(template.id)}
                       >
-                        <div className="font-medium text-gray-900 text-base">{template.name}</div>
-                        <div className="text-sm text-gray-600 mt-1 truncate">{template.subject}</div>
+                        <div className="font-medium text-gray-900 dark:text-gray-100 text-base">{template.name}</div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400 mt-1 truncate">{template.subject}</div>
                       </div>
                     ))
                   )}
@@ -432,8 +431,8 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
               </div>
 
               {formData.template_id && (
-                <div className="mt-4 p-4 bg-gray-50 rounded-md">
-                  <p className="text-sm">
+                <div className="mt-4 p-4 bg-muted dark:bg-gray-800 rounded-md">
+                  <p className="text-sm text-foreground">
                     Selected template: <strong>{templates.find((t) => t.id === formData.template_id)?.name}</strong>
                   </p>
                 </div>
@@ -457,20 +456,20 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
             <div className="space-y-4">
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-medium text-foreground">
                     Select Recipients
                   </label>
-                  <div className="text-sm text-gray-600">
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
                     {formData.recipient_ids.length} total selected
                     {selectedOnPageCount > 0 && selectedOnPageCount < paginatedContacts.length && (
-                      <span className="ml-2 text-gray-500">({selectedOnPageCount} on this page)</span>
+                      <span className="ml-2 text-gray-500 dark:text-gray-400">({selectedOnPageCount} on this page)</span>
                     )}
                   </div>
                   {/* Page size selector */}
                   <select
                     value={pageSize}
                     onChange={handlePageSizeChange}
-                    className="px-2 py-1.5 text-sm bg-white border border-gray-300 rounded-lg hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700 shadow-sm"
+                    className="px-2 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700 dark:text-gray-300 shadow-sm"
                   >
                     <option value={10}>10 per page</option>
                     <option value={20}>20 per page</option>
@@ -489,35 +488,35 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                         selectedOnPageCount === paginatedContacts.length
                       }
                       onChange={handleSelectAllOnPage}
-                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mr-2"
+                      className="h-4 w-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 mr-2"
                     />
-                    <label className="text-sm text-gray-700 cursor-pointer">
+                    <label className="text-sm text-foreground cursor-pointer">
                       Select all on this page ({paginatedContacts.length} contacts)
                       {selectedOnPageCount === paginatedContacts.length && (
-                        <span className="ml-2 text-green-600">✓ All selected</span>
+                        <span className="ml-2 text-green-600 dark:text-green-400">✓ All selected</span>
                       )}
                     </label>
                   </div>
                 )}
 
                 {/* Contacts list */}
-                <div className="border border-gray-300 rounded-md overflow-hidden">
+                <div className="border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden">
                   {loadingContacts ? (
-                    <div className="h-64 flex items-center justify-center text-gray-500">
+                    <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400">
                       Loading contacts...
                     </div>
                   ) : paginatedContacts.length === 0 ? (
-                    <div className="h-64 flex items-center justify-center text-gray-500">
+                    <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400">
                       No contacts yet. Add contacts first.
                       <br />
-                      <a href="/contacts" className="text-blue-600 hover:underline ml-2">
+                      <a href="/contacts" className="text-blue-600 dark:text-blue-400 hover:underline ml-2">
                         Go to Contacts
                       </a>
                     </div>
                   ) : (
                     <>
                       {/* Table header */}
-                      <div className="bg-gray-50 grid grid-cols-12 gap-2 px-4 py-2 border-b text-xs font-medium text-gray-500 uppercase">
+                      <div className="bg-muted dark:bg-gray-800 grid grid-cols-12 gap-2 px-4 py-2 border-b border-gray-200 dark:border-gray-700 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                         <div className="col-span-1"></div>
                         <div className="col-span-4">Name</div>
                         <div className="col-span-4">Email</div>
@@ -529,25 +528,25 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                         {paginatedContacts.map((contact) => (
                           <label
                             key={contact.id}
-                            className="grid grid-cols-12 gap-2 px-4 py-3 border-b hover:bg-gray-50 cursor-pointer items-center"
+                            className="grid grid-cols-12 gap-2 px-4 py-3 border-b border-gray-200 dark:border-gray-700 hover:bg-muted dark:hover:bg-gray-800 cursor-pointer items-center"
                           >
                             <div className="col-span-1">
                               <input
                                 type="checkbox"
                                 checked={formData.recipient_ids.includes(contact.id)}
                                 onChange={() => handleContactToggle(contact.id)}
-                                className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                className="h-4 w-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
                               />
                             </div>
-                            <div className="col-span-4 text-sm text-gray-900 truncate">
+                            <div className="col-span-4 text-sm text-foreground truncate">
                               {contact.first_name || contact.last_name
                                 ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || '—'
                                 : '—'}
                             </div>
-                            <div className="col-span-4 text-sm text-gray-700 truncate">
+                            <div className="col-span-4 text-sm text-foreground truncate">
                               {contact.email}
                             </div>
-                            <div className="col-span-3 text-sm text-gray-500 truncate">
+                            <div className="col-span-3 text-sm text-gray-500 dark:text-gray-400 truncate">
                               {contact.company || '—'}
                             </div>
                           </label>
@@ -560,7 +559,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                 {/* Pagination controls */}
                 {!loadingContacts && totalPages > 1 && (
                   <div className="flex items-center justify-between mt-3">
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
                       Showing {(currentPage - 1) * pageSize + 1}-
                       {Math.min(currentPage * pageSize, totalContacts)} of {totalContacts} contacts
                     </div>
@@ -569,7 +568,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                         type="button"
                         onClick={() => goToPage(currentPage - 1)}
                         disabled={currentPage === 1}
-                        className="px-3 py-1.5 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 shadow-sm transition-colors"
+                        className="px-3 py-1.5 text-sm font-medium bg-background dark:bg-card border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-muted dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed text-foreground shadow-sm transition-colors"
                       >
                         Previous
                       </button>
@@ -594,7 +593,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                               className={`w-8 h-8 text-sm font-medium rounded-lg transition-colors ${
                                 currentPage === pageNum
                                   ? 'bg-blue-600 text-white shadow-md'
-                                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                                  : 'bg-background dark:bg-card text-foreground border border-gray-300 dark:border-gray-600 hover:bg-muted dark:hover:bg-gray-800'
                               }`}
                             >
                               {pageNum}
@@ -606,7 +605,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                         type="button"
                         onClick={() => goToPage(currentPage + 1)}
                         disabled={currentPage === totalPages}
-                        className="px-3 py-1.5 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 shadow-sm transition-colors"
+                        className="px-3 py-1.5 text-sm font-medium bg-background dark:bg-card border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-muted dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed text-foreground shadow-sm transition-colors"
                       >
                         Next
                       </button>
@@ -616,8 +615,8 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
               </div>
 
               {/* Email Provider Selection */}
-              <div className="border-t pt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                <label className="block text-sm font-medium text-foreground mb-2">
                   Email Provider
                 </label>
                 <div className="space-y-2">
@@ -627,12 +626,12 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                       value="resend"
                       checked={formData.email_provider === 'resend'}
                       onChange={(e) => setFormData({ ...formData, email_provider: e.target.value as 'resend' })}
-                      className="h-4 w-4 mt-1 text-blue-600 focus:ring-blue-500"
+                      className="h-4 w-4 mt-1 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
                     />
-                    <span className="ml-2 text-sm text-gray-700">
+                    <span className="ml-2 text-sm text-foreground">
                       <strong>Resend</strong> - Fast, reliable, with analytics
                       {formData.email_provider === 'resend' && (
-                        <span className="block text-xs text-blue-600 mt-1">
+                        <span className="block text-xs text-blue-600 dark:text-blue-400 mt-1">
                           📧 Campaigns will be sent from: {formData.sender_name || senderName} &lt;{senderEmail}&gt;
                         </span>
                       )}
@@ -644,12 +643,12 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                       value="gmail"
                       checked={formData.email_provider === 'gmail'}
                       onChange={(e) => setFormData({ ...formData, email_provider: e.target.value as 'gmail' })}
-                      className="h-4 w-4 mt-1 text-blue-600 focus:ring-blue-500"
+                      className="h-4 w-4 mt-1 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
                     />
-                    <span className="ml-2 text-sm text-gray-700">
+                    <span className="ml-2 text-sm text-foreground">
                       <strong>Gmail SMTP</strong> - Send from your personal Gmail (max 500/day)
                       {formData.email_provider === 'gmail' && (
-                        <span className="block text-xs text-orange-600 mt-1">
+                        <span className="block text-xs text-orange-600 dark:text-orange-400 mt-1">
                           ⚠️ Make sure you've configured your Gmail settings in Dashboard → Settings
                         </span>
                       )}
@@ -659,7 +658,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
 
                 {/* Editable From Name */}
                 <div className="mt-4">
-                  <label htmlFor="sender_name" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="sender_name" className="block text-sm font-medium text-foreground mb-2">
                     From Name
                   </label>
                   <input
@@ -668,10 +667,9 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                     value={formData.sender_name}
                     onChange={(e) => setFormData({ ...formData, sender_name: e.target.value })}
                     placeholder={senderName}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                    style={{ color: '#000000' }}
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                   />
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                     This name will appear in the recipient's inbox as the sender.
                   </p>
                 </div>
@@ -681,7 +679,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                 <button
                   type="button"
                   onClick={() => setStep(1)}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-foreground hover:bg-muted dark:hover:bg-gray-700"
                 >
                   Back
                 </button>
@@ -701,42 +699,42 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
           {step === 3 && (
             <div className="space-y-6">
               <div>
-                <h3 className="font-medium text-gray-900">Campaign Details</h3>
+                <h3 className="font-medium text-foreground">Campaign Details</h3>
                 <dl className="mt-2 grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Name</dt>
-                    <dd className="text-sm text-gray-900">{formData.name}</dd>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Name</dt>
+                    <dd className="text-sm text-foreground">{formData.name}</dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Subject</dt>
-                    <dd className="text-sm text-gray-900">{formData.subject}</dd>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Subject</dt>
+                    <dd className="text-sm text-foreground">{formData.subject}</dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">From</dt>
-                    <dd className="text-sm text-gray-900">
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">From</dt>
+                    <dd className="text-sm text-foreground">
                       {formData.sender_name || senderName} &lt;{senderEmail}&gt;
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Email Provider</dt>
-                    <dd className="text-sm text-gray-900 capitalize">{formData.email_provider}</dd>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Email Provider</dt>
+                    <dd className="text-sm text-foreground capitalize">{formData.email_provider}</dd>
                   </div>
                   {formData.email_provider === 'resend' && (
                     <div className="col-span-2">
-                      <dt className="text-sm font-medium text-gray-500">Note</dt>
-                      <dd className="text-sm text-amber-600">
+                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Note</dt>
+                      <dd className="text-sm text-amber-600 dark:text-amber-500">
                         ⚠️ Your domain ({senderEmail.split('@')[1]}) must be verified in Resend.
                         If not, emails will bounce. Use Gmail provider if you want to send from @gmail.com.
                       </dd>
                     </div>
                   )}
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Recipients</dt>
-                    <dd className="text-sm text-gray-900">{formData.recipient_ids.length} contacts</dd>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Recipients</dt>
+                    <dd className="text-sm text-foreground">{formData.recipient_ids.length} contacts</dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Schedule</dt>
-                    <dd className="text-sm text-gray-900">
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Schedule</dt>
+                    <dd className="text-sm text-foreground">
                       {formData.scheduled_at ? new Date(formData.scheduled_at).toLocaleString() : 'Send immediately'}
                     </dd>
                   </div>
@@ -744,15 +742,15 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
               </div>
 
               <div>
-                <h3 className="font-medium text-gray-900 mb-2">Preview</h3>
+                <h3 className="font-medium text-foreground mb-2">Preview</h3>
                 <div
-                  className="border border-gray-200 rounded-md p-4 bg-gray-50 max-h-64 overflow-y-auto"
+                  className="border border-gray-200 dark:border-gray-700 rounded-md p-4 bg-muted dark:bg-gray-800 max-h-64 overflow-y-auto"
                   dangerouslySetInnerHTML={{ __html: formData.html_content }}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-foreground mb-2">
                   Schedule (optional)
                 </label>
                 <input
@@ -764,18 +762,18 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                     const utcDate = value ? new Date(value).toISOString() : ''
                     setFormData({ ...formData, scheduled_at: utcDate })
                   }}
-                  className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 />
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                   Schedule when to send this campaign. Times are stored in UTC automatically.
                 </p>
               </div>
 
-              <div className="flex justify-between items-center pt-4 border-t">
+              <div className="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
                 <button
                   type="button"
                   onClick={() => setStep(2)}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-foreground hover:bg-muted dark:hover:bg-gray-700"
                 >
                   Back
                 </button>
@@ -784,7 +782,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                     type="button"
                     onClick={handleSubmit}
                     disabled={saving}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-foreground hover:bg-muted dark:hover:bg-gray-700 disabled:opacity-50"
                   >
                     {saving ? 'Saving...' : 'Save Draft'}
                   </button>

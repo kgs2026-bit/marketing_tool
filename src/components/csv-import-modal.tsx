@@ -302,17 +302,17 @@ export default function CSVImportModal({ isOpen, onClose, onImportComplete }: CS
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto flex items-start justify-center py-8 z-50">
-      <div className="relative w-full max-w-2xl mx-auto p-5 bg-white shadow-xl rounded-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4 sticky top-0 bg-white pb-2">
-          <h3 className="text-lg font-medium text-gray-900">Import Contacts</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-500 text-xl">✕</button>
+    <div className="fixed inset-0 bg-black/50 overflow-y-auto flex items-start justify-center py-8 z-50">
+      <div className="relative w-full max-w-2xl mx-auto p-5 bg-background dark:bg-card shadow-xl rounded-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4 sticky top-0 bg-background dark:bg-card pb-2">
+          <h3 className="text-lg font-medium text-foreground">Import Contacts</h3>
+          <button onClick={onClose} className="text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400 text-xl">✕</button>
         </div>
 
         {/* Instructions */}
-        <div className="mb-6 p-4 bg-blue-50 rounded-md">
-          <h4 className="font-medium text-blue-900 mb-2">File Format Requirements:</h4>
-          <ul className="text-sm text-blue-700 space-y-1">
+        <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+          <h4 className="font-medium text-blue-900 dark:text-blue-400 mb-2">File Format Requirements:</h4>
+          <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
             <li>• Supported formats: <strong>CSV</strong>, <strong>Excel</strong> (.xlsx, .xls)</li>
             <li>• Must include an <strong>Email</strong> column (required)</li>
             <li>• Optional columns: <strong>First Name</strong>, <strong>Last Name</strong>, or <strong>Name</strong> (full name)</li>
@@ -323,37 +323,37 @@ export default function CSVImportModal({ isOpen, onClose, onImportComplete }: CS
 
         {/* File Upload */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Upload CSV or Excel File</label>
+          <label className="block text-sm font-medium text-foreground mb-2">Upload CSV or Excel File</label>
           <input
             ref={fileInputRef}
             type="file"
             accept=".csv,.xlsx,.xls"
             onChange={handleFileChange}
-            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 dark:file:bg-blue-900/30 file:text-blue-700 dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/40"
           />
         </div>
 
         {/* Preview */}
         {preview.length > 0 && (
           <div className="mb-6">
-            <h4 className="font-medium text-gray-900 mb-2">Preview (first {preview.length} rows):</h4>
-            <div className="border border-gray-200 rounded-md overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+            <h4 className="font-medium text-foreground mb-2">Preview (first {preview.length} rows):</h4>
+            <div className="border border-gray-200 dark:border-gray-700 rounded-md overflow-x-auto">
+              <table className="min-w-full divide-y divide-border dark:divide-gray-700">
+                <thead className="bg-muted dark:bg-gray-800">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">First Name</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Last Name</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">#</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Email</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">First Name</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Last Name</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-background dark:bg-card divide-y divide-border dark:divide-gray-700">
                   {preview.map((row, idx) => (
                     <tr key={idx}>
-                      <td className="px-4 py-2 text-sm text-gray-500">{row.rowNumber}</td>
-                      <td className="px-4 py-2 text-sm text-gray-900">{row.email}</td>
-                      <td className="px-4 py-2 text-sm text-gray-900">{row.first_name}</td>
-                      <td className="px-4 py-2 text-sm text-gray-900">{row.last_name}</td>
+                      <td className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">{row.rowNumber}</td>
+                      <td className="px-4 py-2 text-sm text-foreground">{row.email}</td>
+                      <td className="px-4 py-2 text-sm text-foreground">{row.first_name}</td>
+                      <td className="px-4 py-2 text-sm text-foreground">{row.last_name}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -364,11 +364,11 @@ export default function CSVImportModal({ isOpen, onClose, onImportComplete }: CS
 
         {/* Import Results */}
         {result && (
-          <div className={`mb-6 p-4 rounded-md ${result.errors.length > 0 ? 'bg-yellow-50' : 'bg-green-50'}`}>
-            <h4 className={`font-medium mb-2 ${result.errors.length > 0 ? 'text-yellow-900' : 'text-green-900'}`}>
+          <div className={`mb-6 p-4 rounded-md ${result.errors.length > 0 ? 'bg-yellow-50 dark:bg-yellow-900/20' : 'bg-green-50 dark:bg-green-900/20'}`}>
+            <h4 className={`font-medium mb-2 ${result.errors.length > 0 ? 'text-yellow-900 dark:text-yellow-500' : 'text-green-900 dark:text-green-400'}`}>
               Import Results
             </h4>
-            <ul className={`text-sm space-y-1 ${result.errors.length > 0 ? 'text-yellow-700' : 'text-green-700'}`}>
+            <ul className={`text-sm space-y-1 ${result.errors.length > 0 ? 'text-yellow-800 dark:text-yellow-400' : 'text-green-800 dark:text-green-300'}`}>
               <li>Total rows processed: {result.total}</li>
               <li>Successfully imported: {result.imported}</li>
               <li>Skipped: {result.skipped}</li>
@@ -387,7 +387,7 @@ export default function CSVImportModal({ isOpen, onClose, onImportComplete }: CS
           <button
             type="button"
             onClick={() => { reset(); onClose(); }}
-            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-muted dark:hover:bg-gray-700"
           >
             Cancel
           </button>

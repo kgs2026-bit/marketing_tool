@@ -75,8 +75,8 @@ export default function CampaignsPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Campaigns</h1>
-          <p className="mt-2 text-gray-600">Create and send email campaigns</p>
+          <h1 className="text-3xl font-bold text-foreground">Campaigns</h1>
+          <p className="mt-2 text-gray-600 dark:text-gray-400">Create and send email campaigns</p>
         </div>
         <button
           onClick={() => setIsBuilderOpen(true)}

@@ -95,9 +95,9 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
 
   if (!editor) {
     return (
-      <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto flex items-start justify-center py-8 z-50">
-        <div className="relative w-full max-w-4xl mx-auto p-5 bg-white shadow-xl rounded-lg">
-          <p>Loading editor...</p>
+      <div className="fixed inset-0 bg-black/50 overflow-y-auto flex items-start justify-center py-8 z-50">
+        <div className="relative w-full max-w-4xl mx-auto p-5 bg-background dark:bg-card shadow-xl rounded-lg">
+          <p className="text-foreground">Loading editor...</p>
         </div>
       </div>
     )
@@ -151,21 +151,21 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto flex items-start justify-center py-8 z-50">
-      <div className="relative w-full max-w-5xl mx-auto p-5 bg-white shadow-xl rounded-lg max-h-[90vh] overflow-y-auto text-gray-900">
-        <div className="flex justify-between items-center mb-4 sticky top-0 bg-white pb-2">
-          <h3 className="text-lg font-medium text-gray-900">
+    <div className="fixed inset-0 bg-black/50 overflow-y-auto flex items-start justify-center py-8 z-50">
+      <div className="relative w-full max-w-5xl mx-auto p-5 bg-background dark:bg-card shadow-xl rounded-lg max-h-[90vh] overflow-y-auto text-foreground">
+        <div className="flex justify-between items-center mb-4 sticky top-0 bg-background dark:bg-card pb-2">
+          <h3 className="text-lg font-medium text-foreground">
             {template ? 'Edit Template' : 'Create Template'}
           </h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-500 text-xl">
+          <button onClick={onClose} className="text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400 text-xl">
             ✕
           </button>
         </div>
 
         {/* Variable hints */}
-        <div className="mb-4 p-3 bg-blue-50 rounded-md text-sm">
-          <p className="font-medium text-blue-900">Available variables:</p>
-          <p className="text-blue-700">
+        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md text-sm">
+          <p className="font-medium text-blue-900 dark:text-blue-400">Available variables:</p>
+          <p className="text-blue-700 dark:text-blue-300">
             {'{{'}{'first_name'}{'}}'}, {'{{'}{'last_name'}{'}}'}, {'{{'}{'email'}{'}}'}, {'{{'}{'company'}{'}}'}, {'{{'}{'unsubscribe_link'}{'}}'}
           </p>
         </div>
@@ -173,41 +173,41 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-800">Name *</label>
+              <label className="block text-sm font-medium text-foreground">Name *</label>
               <input
                 type="text"
                 required
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="mt-1 block w-full border border-gray-400 rounded-md shadow-sm py-3 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-3 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-800">Subject *</label>
+              <label className="block text-sm font-medium text-foreground">Subject *</label>
               <input
                 type="text"
                 required
                 value={formData.subject}
                 onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                 placeholder="Use {{first_name}} for personalization"
-                className="mt-1 block w-full border border-gray-400 rounded-md shadow-sm py-3 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-3 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Content</label>
+            <label className="block text-sm font-medium text-foreground mb-2">Content</label>
 
             {/* TipTap Editor */}
-            <div className="border border-gray-400 rounded-md overflow-hidden">
+            <div className="border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden">
               {/* Toolbar */}
-              <div className="bg-gray-50 border-b border-gray-300 p-2 flex flex-wrap gap-1">
+              <div className="bg-muted dark:bg-gray-800 border-b border-gray-300 dark:border-gray-600 p-2 flex flex-wrap gap-1">
                 {/* Text Style */}
-                <div className="flex items-center gap-1 border-r border-gray-300 pr-2 mr-2">
+                <div className="flex items-center gap-1 border-r border-gray-300 dark:border-gray-600 pr-2 mr-2">
                   <button
                     type="button"
                     onClick={() => editor.chain().focus().toggleBold().run()}
-                    className={`p-2 rounded ${editor?.isActive('bold') ? 'bg-blue-600 text-white' : 'hover:bg-gray-200'}`}
+                    className={`p-2 rounded ${editor?.isActive('bold') ? 'bg-blue-600 text-white' : 'hover:bg-muted dark:hover:bg-gray-700'}`}
                     title="Bold (Ctrl+B)"
                   >
                     <strong>B</strong>
@@ -215,7 +215,7 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
                   <button
                     type="button"
                     onClick={() => editor.chain().focus().toggleItalic().run()}
-                    className={`p-2 rounded ${editor?.isActive('italic') ? 'bg-blue-600 text-white' : 'hover:bg-gray-200'}`}
+                    className={`p-2 rounded ${editor?.isActive('italic') ? 'bg-blue-600 text-white' : 'hover:bg-muted dark:hover:bg-gray-700'}`}
                     title="Italic (Ctrl+I)"
                   >
                     <em>I</em>
@@ -223,7 +223,7 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
                   <button
                     type="button"
                     onClick={() => editor.chain().focus().toggleStrike().run()}
-                    className={`p-2 rounded ${editor?.isActive('strike') ? 'bg-blue-600 text-white' : 'hover:bg-gray-200'}`}
+                    className={`p-2 rounded ${editor?.isActive('strike') ? 'bg-blue-600 text-white' : 'hover:bg-muted dark:hover:bg-gray-700'}`}
                     title="Strikethrough"
                   >
                     <s>S</s>
@@ -231,7 +231,7 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
                   <button
                     type="button"
                     onClick={() => editor.chain().focus().toggleCode().run()}
-                    className={`p-2 rounded ${editor?.isActive('code') ? 'bg-blue-600 text-white' : 'hover:bg-gray-200'}`}
+                    className={`p-2 rounded ${editor?.isActive('code') ? 'bg-blue-600 text-white' : 'hover:bg-muted dark:hover:bg-gray-700'}`}
                     title="Inline Code"
                   >
                     {'</>'}
@@ -239,11 +239,11 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
                 </div>
 
                 {/* Headings */}
-                <div className="flex items-center gap-1 border-r border-gray-300 pr-2 mr-2">
+                <div className="flex items-center gap-1 border-r border-gray-300 dark:border-gray-600 pr-2 mr-2">
                   <button
                     type="button"
                     onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-                    className={`px-3 py-2 rounded text-sm ${editor?.isActive('heading', { level: 1 }) ? 'bg-blue-600 text-white' : 'hover:bg-gray-200'}`}
+                    className={`px-3 py-2 rounded text-sm ${editor?.isActive('heading', { level: 1 }) ? 'bg-blue-600 text-white' : 'hover:bg-muted dark:hover:bg-gray-700'}`}
                     title="Heading 1"
                   >
                     H1
@@ -251,7 +251,7 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
                   <button
                     type="button"
                     onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-                    className={`px-3 py-2 rounded text-sm ${editor?.isActive('heading', { level: 2 }) ? 'bg-blue-600 text-white' : 'hover:bg-gray-200'}`}
+                    className={`px-3 py-2 rounded text-sm ${editor?.isActive('heading', { level: 2 }) ? 'bg-blue-600 text-white' : 'hover:bg-muted dark:hover:bg-gray-700'}`}
                     title="Heading 2"
                   >
                     H2
@@ -259,7 +259,7 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
                   <button
                     type="button"
                     onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-                    className={`px-3 py-2 rounded text-sm ${editor?.isActive('heading', { level: 3 }) ? 'bg-blue-600 text-white' : 'hover:bg-gray-200'}`}
+                    className={`px-3 py-2 rounded text-sm ${editor?.isActive('heading', { level: 3 }) ? 'bg-blue-600 text-white' : 'hover:bg-muted dark:hover:bg-gray-700'}`}
                     title="Heading 3"
                   >
                     H3
@@ -267,11 +267,11 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
                 </div>
 
                 {/* Lists */}
-                <div className="flex items-center gap-1 border-r border-gray-300 pr-2 mr-2">
+                <div className="flex items-center gap-1 border-r border-gray-300 dark:border-gray-600 pr-2 mr-2">
                   <button
                     type="button"
                     onClick={() => editor.chain().focus().toggleBulletList().run()}
-                    className={`p-2 rounded ${editor?.isActive('bulletList') ? 'bg-blue-600 text-white' : 'hover:bg-gray-200'}`}
+                    className={`p-2 rounded ${editor?.isActive('bulletList') ? 'bg-blue-600 text-white' : 'hover:bg-muted dark:hover:bg-gray-700'}`}
                     title="Bullet List"
                   >
                     • List
@@ -279,7 +279,7 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
                   <button
                     type="button"
                     onClick={() => editor.chain().focus().toggleOrderedList().run()}
-                    className={`p-2 rounded ${editor?.isActive('orderedList') ? 'bg-blue-600 text-white' : 'hover:bg-gray-200'}`}
+                    className={`p-2 rounded ${editor?.isActive('orderedList') ? 'bg-blue-600 text-white' : 'hover:bg-muted dark:hover:bg-gray-700'}`}
                     title="Numbered List"
                   >
                     1. List
@@ -287,11 +287,11 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
                 </div>
 
                 {/* Alignment */}
-                <div className="flex items-center gap-1 border-r border-gray-300 pr-2 mr-2">
+                <div className="flex items-center gap-1 border-r border-gray-300 dark:border-gray-600 pr-2 mr-2">
                   <button
                     type="button"
                     onClick={() => editor.chain().focus().setTextAlign('left').run()}
-                    className={`p-2 rounded ${editor?.isActive({ textAlign: 'left' }) ? 'bg-blue-600 text-white' : 'hover:bg-gray-200'}`}
+                    className={`p-2 rounded ${editor?.isActive({ textAlign: 'left' }) ? 'bg-blue-600 text-white' : 'hover:bg-muted dark:hover:bg-gray-700'}`}
                     title="Align Left"
                   >
                     ⬅
@@ -299,7 +299,7 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
                   <button
                     type="button"
                     onClick={() => editor.chain().focus().setTextAlign('center').run()}
-                    className={`p-2 rounded ${editor?.isActive({ textAlign: 'center' }) ? 'bg-blue-600 text-white' : 'hover:bg-gray-200'}`}
+                    className={`p-2 rounded ${editor?.isActive({ textAlign: 'center' }) ? 'bg-blue-600 text-white' : 'hover:bg-muted dark:hover:bg-gray-700'}`}
                     title="Align Center"
                   >
                     ↔
@@ -307,7 +307,7 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
                   <button
                     type="button"
                     onClick={() => editor.chain().focus().setTextAlign('right').run()}
-                    className={`p-2 rounded ${editor?.isActive({ textAlign: 'right' }) ? 'bg-blue-600 text-white' : 'hover:bg-gray-200'}`}
+                    className={`p-2 rounded ${editor?.isActive({ textAlign: 'right' }) ? 'bg-blue-600 text-white' : 'hover:bg-muted dark:hover:bg-gray-700'}`}
                     title="Align Right"
                   >
                     ➡
@@ -315,11 +315,11 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
                 </div>
 
                 {/* Link */}
-                <div className="flex items-center gap-1 border-r border-gray-300 pr-2 mr-2">
+                <div className="flex items-center gap-1 border-r border-gray-300 dark:border-gray-600 pr-2 mr-2">
                   <button
                     type="button"
                     onClick={setLink}
-                    className={`p-2 rounded ${editor?.isActive('link') ? 'bg-blue-600 text-white' : 'hover:bg-gray-200'}`}
+                    className={`p-2 rounded ${editor?.isActive('link') ? 'bg-blue-600 text-white' : 'hover:bg-muted dark:hover:bg-gray-700'}`}
                     title="Add/Edit Link"
                   >
                     🔗 Link
@@ -327,7 +327,7 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
                   <button
                     type="button"
                     onClick={() => editor.chain().focus().unsetLink().run()}
-                    className={`p-2 rounded ${editor?.isActive('link') ? 'bg-red-600 text-white' : 'hover:bg-gray-200'}`}
+                    className={`p-2 rounded ${editor?.isActive('link') ? 'bg-red-600 text-white' : 'hover:bg-muted dark:hover:bg-gray-700'}`}
                     title="Remove Link"
                   >
                     ❌ Unlink
@@ -339,7 +339,7 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
                   <button
                     type="button"
                     onClick={() => editor.chain().focus().undo().run()}
-                    className="p-2 rounded hover:bg-gray-200"
+                    className="p-2 rounded hover:bg-muted dark:hover:bg-gray-700"
                     title="Undo (Ctrl+Z)"
                   >
                     ↶ Undo
@@ -347,7 +347,7 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
                   <button
                     type="button"
                     onClick={() => editor.chain().focus().redo().run()}
-                    className="p-2 rounded hover:bg-gray-200"
+                    className="p-2 rounded hover:bg-muted dark:hover:bg-gray-700"
                     title="Redo (Ctrl+Y)"
                   >
                     ↷ Redo
@@ -356,7 +356,7 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
               </div>
 
               {/* Editor */}
-              <div className="bg-white p-4 min-h-[400px] max-h-[500px] overflow-y-auto">
+              <div className="bg-background dark:bg-card p-4 min-h-[400px] max-h-[500px] overflow-y-auto">
                 <EditorContent editor={editor} />
               </div>
             </div>
@@ -365,23 +365,23 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
           {/* Preview */}
           {formData.html_content && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Preview</label>
+              <label className="block text-sm font-medium text-foreground mb-2">Preview</label>
               <div
-                className="border border-gray-200 rounded-md p-4 bg-gray-50"
+                className="border border-gray-200 dark:border-gray-700 rounded-md p-4 bg-muted dark:bg-gray-800"
                 dangerouslySetInnerHTML={{ __html: formData.html_content }}
               />
             </div>
           )}
 
           {error && (
-            <div className="text-red-600 text-sm bg-red-50 p-3 rounded">{error}</div>
+            <div className="text-red-600 dark:text-red-400 text-sm bg-red-50 dark:bg-red-900/20 p-3 rounded">{error}</div>
           )}
 
           <div className="flex justify-end space-x-3 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-muted dark:hover:bg-gray-700"
             >
               Cancel
             </button>

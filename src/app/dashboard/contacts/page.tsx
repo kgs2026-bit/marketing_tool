@@ -95,8 +95,8 @@ export default function ContactsPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Contacts</h1>
-          <p className="mt-2 text-gray-600">Manage your email contacts</p>
+          <h1 className="text-3xl font-bold text-foreground">Contacts</h1>
+          <p className="mt-2 text-gray-600 dark:text-gray-400">Manage your email contacts</p>
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
@@ -107,16 +107,16 @@ export default function ContactsPage() {
       </div>
 
       {/* Import/Export buttons */}
-      <div className="bg-white p-4 rounded-lg shadow flex space-x-3">
+      <div className="bg-background dark:bg-card p-4 rounded-lg shadow flex space-x-3">
         <button
           onClick={() => setIsImportModalOpen(true)}
-          className="text-sm text-gray-600 hover:text-blue-600 font-medium"
+          className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 font-medium"
         >
           📥 Import CSV
         </button>
         <button
           onClick={() => addToast({ message: 'CSV export coming soon!', type: 'info' })}
-          className="text-sm text-gray-600 hover:text-blue-600"
+          className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
         >
           📤 Export CSV
         </button>
@@ -131,26 +131,26 @@ export default function ContactsPage() {
 
       {/* Pagination */}
       {!loading && totalPages > 1 && (
-        <div className="flex items-center justify-between mt-6 bg-white p-4 rounded-lg shadow">
+        <div className="flex items-center justify-between mt-6 bg-background dark:bg-card p-4 rounded-lg shadow">
           <div className="flex items-center space-x-2">
-            <span className="text-sm font-medium text-gray-700">Show:</span>
+            <span className="text-sm font-medium text-foreground">Show:</span>
             <select
               value={pageSize}
               onChange={(e) => {
                 setPageSize(parseInt(e.target.value))
                 setCurrentPage(1)
               }}
-              className="px-2 py-1.5 text-sm bg-white border border-gray-300 rounded-lg hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700 shadow-sm"
+              className="px-2 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700 dark:text-gray-300 shadow-sm"
             >
               <option value={10}>10</option>
               <option value={20}>20</option>
               <option value={50}>50</option>
               <option value={100}>100</option>
             </select>
-            <span className="text-sm font-medium text-gray-700">per page</span>
+            <span className="text-sm font-medium text-foreground">per page</span>
           </div>
 
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-gray-600 dark:text-gray-400">
             Showing {totalContacts > 0 ? (currentPage - 1) * pageSize + 1 : 0}-
             {Math.min(currentPage * pageSize, totalContacts)} of {totalContacts} contacts
           </div>
@@ -159,7 +159,7 @@ export default function ContactsPage() {
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1.5 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 shadow-sm transition-colors"
+              className="px-3 py-1.5 text-sm font-medium bg-background dark:bg-card border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-muted dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed text-foreground shadow-sm transition-colors"
             >
               Previous
             </button>
@@ -183,7 +183,7 @@ export default function ContactsPage() {
                     className={`w-8 h-8 text-sm font-medium rounded-lg transition-colors ${
                       currentPage === pageNum
                         ? 'bg-blue-600 text-white shadow-md'
-                        : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                        : 'bg-background dark:bg-card text-foreground border border-gray-300 dark:border-gray-600 hover:bg-muted dark:hover:bg-gray-800'
                     }`}
                   >
                     {pageNum}
@@ -194,7 +194,7 @@ export default function ContactsPage() {
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="px-3 py-1.5 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 shadow-sm transition-colors"
+              className="px-3 py-1.5 text-sm font-medium bg-background dark:bg-card border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-muted dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed text-foreground shadow-sm transition-colors"
             >
               Next
             </button>

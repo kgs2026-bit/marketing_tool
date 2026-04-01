@@ -303,8 +303,8 @@ export default function CSVImportModal({ isOpen, onClose, onImportComplete }: CS
 
   return (
     <div className="fixed inset-0 bg-black/50 overflow-y-auto flex items-start justify-center py-8 z-50">
-      <div className="relative w-full max-w-2xl mx-auto p-5 bg-background dark:bg-card shadow-xl rounded-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4 sticky top-0 bg-background dark:bg-card pb-2">
+      <div className="relative w-full max-w-2xl mx-auto p-5 bg-card shadow-xl rounded-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4 sticky top-0 bg-card pb-2">
           <h3 className="text-lg font-medium text-foreground">Import Contacts</h3>
           <button onClick={onClose} className="text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400 text-xl">✕</button>
         </div>
@@ -347,7 +347,7 @@ export default function CSVImportModal({ isOpen, onClose, onImportComplete }: CS
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Last Name</th>
                   </tr>
                 </thead>
-                <tbody className="bg-background dark:bg-card divide-y divide-border dark:divide-gray-700">
+                <tbody className="bg-card divide-y divide-border dark:divide-gray-700">
                   {preview.map((row, idx) => (
                     <tr key={idx}>
                       <td className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">{row.rowNumber}</td>

@@ -66,20 +66,30 @@ export default function Navigation() {
             </Link>
           </div>
           <div className="hidden md:flex items-center space-x-4">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  pathname === link.href || pathname.startsWith(link.href + '/')
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                }`}
-              >
-                <span className="mr-2">{link.icon}</span>
-                {link.label}
-              </Link>
-            ))}
+            {navLinks.map((link) => {
+              // Fix active state: Dashboard only active on /dashboard exactly, others on exact OR subpages
+              let isActive = false
+              if (link.href === '/dashboard') {
+                isActive = pathname === '/dashboard' || pathname === '/dashboard/'
+              } else {
+                isActive = pathname === link.href || pathname.startsWith(link.href + '/')
+              }
+
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
+                      : 'text-gray-600 dark:text-gray-300 hover:bg-muted dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
+                  }`}
+                >
+                  <span className="mr-2">{link.icon}</span>
+                  {link.label}
+                </Link>
+              )
+            })}
           </div>
           <div className="flex items-center space-x-4">
             {/* Theme Toggle */}
@@ -116,20 +126,30 @@ export default function Navigation() {
       {/* Mobile menu */}
       <div className="md:hidden border-t border-gray-200 dark:border-gray-700">
         <div className="px-2 pt-2 pb-3 space-y-1">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`flex items-center px-3 py-2 rounded-md text-base font-medium ${
-                pathname === link.href || pathname.startsWith(link.href + '/')
-                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
-                  : 'text-gray-600 dark:text-gray-300 hover:bg-muted dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
-              }`}
-            >
-              <span className="mr-3">{link.icon}</span>
-              {link.label}
-            </Link>
-          ))}
+          {navLinks.map((link) => {
+            // Match desktop logic: Dashboard only on exact, others on exact OR subpages
+            let isActive = false
+            if (link.href === '/dashboard') {
+              isActive = pathname === '/dashboard' || pathname === '/dashboard/'
+            } else {
+              isActive = pathname === link.href || pathname.startsWith(link.href + '/')
+            }
+
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`flex items-center px-3 py-2 rounded-md text-base font-medium ${
+                  isActive
+                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
+                    : 'text-gray-600 dark:text-gray-300 hover:bg-muted dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
+                }`}
+              >
+                <span className="mr-3">{link.icon}</span>
+                {link.label}
+              </Link>
+            )
+          })}
           {user && (
             <button
               onClick={handleSignOut}

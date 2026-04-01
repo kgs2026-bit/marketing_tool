@@ -91,25 +91,25 @@ export default function CampaignMonitorPage() {
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-background dark:bg-card p-4 rounded-lg shadow">
+            <div className="bg-card p-4 rounded-lg shadow">
               <div className="text-sm text-gray-600 dark:text-gray-400">Status</div>
               <div className="text-xl font-bold capitalize text-foreground">{status}</div>
             </div>
-            <div className="bg-background dark:bg-card p-4 rounded-lg shadow">
+            <div className="bg-card p-4 rounded-lg shadow">
               <div className="text-sm text-gray-600 dark:text-gray-400">Sent</div>
               <div className="text-xl font-bold text-green-600 dark:text-green-400">{sentCount}</div>
             </div>
-            <div className="bg-background dark:bg-card p-4 rounded-lg shadow">
+            <div className="bg-card p-4 rounded-lg shadow">
               <div className="text-sm text-gray-600 dark:text-gray-400">Failed</div>
               <div className="text-xl font-bold text-red-600 dark:text-red-400">{failedCount}</div>
             </div>
-            <div className="bg-background dark:bg-card p-4 rounded-lg shadow">
+            <div className="bg-card p-4 rounded-lg shadow">
               <div className="text-sm text-gray-600 dark:text-gray-400">Total</div>
               <div className="text-xl font-bold text-foreground">{events.length + (status === 'running' ? '...' : '')}</div>
             </div>
           </div>
 
-          <div className="bg-background dark:bg-card rounded-lg shadow overflow-hidden">
+          <div className="bg-card rounded-lg shadow overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
               <h3 className="font-medium text-foreground">Recent Activity</h3>
             </div>
@@ -127,7 +127,7 @@ export default function CampaignMonitorPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                     {events.slice(-50).reverse().map((event, idx) => (
-                      <tr key={idx} className={event.success ? 'bg-background dark:bg-card' : 'bg-red-50 dark:bg-red-900/20'}>
+                      <tr key={idx} className={event.success ? 'bg-card' : 'bg-red-50 dark:bg-red-900/20'}>
                         <td className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
                           {new Date().toLocaleTimeString()}
                         </td>

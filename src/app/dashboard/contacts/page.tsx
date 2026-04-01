@@ -107,7 +107,7 @@ export default function ContactsPage() {
       </div>
 
       {/* Import/Export buttons */}
-      <div className="bg-background dark:bg-card p-4 rounded-lg shadow flex space-x-3">
+      <div className="bg-card p-4 rounded-lg shadow flex space-x-3">
         <button
           onClick={() => setIsImportModalOpen(true)}
           className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 font-medium"
@@ -131,7 +131,7 @@ export default function ContactsPage() {
 
       {/* Pagination */}
       {!loading && totalPages > 1 && (
-        <div className="flex items-center justify-between mt-6 bg-background dark:bg-card p-4 rounded-lg shadow">
+        <div className="flex items-center justify-between mt-6 bg-card p-4 rounded-lg shadow">
           <div className="flex items-center space-x-2">
             <span className="text-sm font-medium text-foreground">Show:</span>
             <select

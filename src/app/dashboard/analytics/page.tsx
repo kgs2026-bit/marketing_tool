@@ -218,7 +218,7 @@ export default function AnalyticsPage() {
       </div>
 
       {stats.length === 0 ? (
-        <div className="bg-background dark:bg-card p-12 rounded-lg shadow text-center">
+        <div className="bg-card p-12 rounded-lg shadow text-center">
           <p className="text-gray-500 dark:text-gray-400 mb-4">No campaign data yet</p>
           <a href="/campaigns" className="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300">
             Create your first campaign →
@@ -227,7 +227,7 @@ export default function AnalyticsPage() {
       ) : (
         <div className="grid gap-6">
           {stats.map(({ campaign, total_sent, delivered, opened, clicked, bounced, recipients }) => (
-            <div key={campaign.id} className="bg-background dark:bg-card p-6 rounded-lg shadow">
+            <div key={campaign.id} className="bg-card p-6 rounded-lg shadow">
               <div className="flex justify-between items-start mb-6">
                 <div>
                   <h3 className="text-lg font-medium text-foreground">{campaign.name}</h3>
@@ -299,7 +299,7 @@ export default function AnalyticsPage() {
                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Bounced</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-background dark:bg-card divide-y divide-border dark:divide-gray-700">
+                    <tbody className="bg-card divide-y divide-border dark:divide-gray-700">
                       {(() => {
                         const pageSize = getPageSize(campaign.id)
                         const currentPage = getCurrentPage(campaign.id)

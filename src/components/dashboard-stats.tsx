@@ -73,7 +73,7 @@ export default function DashboardStats() {
     return (
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="bg-background dark:bg-card p-6 rounded-lg shadow animate-pulse">
+          <div key={i} className="bg-card p-6 rounded-lg shadow animate-pulse">
             <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-1/2 mb-4"></div>
             <div className="h-8 bg-gray-200 dark:bg-gray-800 rounded w-3/4"></div>
           </div>
@@ -93,7 +93,7 @@ export default function DashboardStats() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
       {statItems.map((item) => (
-        <div key={item.label} className="bg-background dark:bg-card p-6 rounded-lg shadow">
+        <div key={item.label} className="bg-card p-6 rounded-lg shadow">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{item.label}</p>

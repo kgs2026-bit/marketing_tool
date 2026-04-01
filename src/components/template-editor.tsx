@@ -96,7 +96,7 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
   if (!editor) {
     return (
       <div className="fixed inset-0 bg-black/50 overflow-y-auto flex items-start justify-center py-8 z-50">
-        <div className="relative w-full max-w-4xl mx-auto p-5 bg-background dark:bg-card shadow-xl rounded-lg">
+        <div className="relative w-full max-w-4xl mx-auto p-5 bg-card shadow-xl rounded-lg">
           <p className="text-foreground">Loading editor...</p>
         </div>
       </div>
@@ -152,8 +152,8 @@ export default function TemplateEditor({ isOpen, onClose, onSave, template }: Te
 
   return (
     <div className="fixed inset-0 bg-black/50 overflow-y-auto flex items-start justify-center py-8 z-50">
-      <div className="relative w-full max-w-5xl mx-auto p-5 bg-background dark:bg-card shadow-xl rounded-lg max-h-[90vh] overflow-y-auto text-foreground">
-        <div className="flex justify-between items-center mb-4 sticky top-0 bg-background dark:bg-card pb-2">
+      <div className="relative w-full max-w-5xl mx-auto p-5 bg-card shadow-xl rounded-lg max-h-[90vh] overflow-y-auto text-foreground">
+        <div className="flex justify-between items-center mb-4 sticky top-0 bg-card pb-2">
           <h3 className="text-lg font-medium text-foreground">
             {template ? 'Edit Template' : 'Create Template'}
           </h3>

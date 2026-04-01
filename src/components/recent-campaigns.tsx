@@ -52,7 +52,7 @@ export default function RecentCampaigns() {
 
   if (loading) {
     return (
-      <div className="bg-background dark:bg-card shadow rounded-lg p-6">
+      <div className="bg-card shadow rounded-lg p-6">
         <h2 className="text-lg font-medium text-foreground mb-4">Recent Campaigns</h2>
         <div className="animate-pulse space-y-4">
           {[1, 2, 3].map((i) => (
@@ -64,7 +64,7 @@ export default function RecentCampaigns() {
   }
 
   return (
-    <div className="bg-background dark:bg-card shadow rounded-lg p-6">
+    <div className="bg-card shadow rounded-lg p-6">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-medium text-foreground">Recent Campaigns</h2>
         <Link href="/campaigns" className="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 text-sm">
@@ -100,7 +100,7 @@ export default function RecentCampaigns() {
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-background dark:bg-card divide-y divide-border dark:divide-gray-700">
+            <tbody className="bg-card divide-y divide-border dark:divide-gray-700">
               {campaigns.map((campaign) => (
                 <tr key={campaign.id}>
                   <td className="px-6 py-4 whitespace-nowrap">

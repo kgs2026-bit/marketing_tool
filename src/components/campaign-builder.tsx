@@ -344,8 +344,8 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
 
   return (
     <div className="fixed inset-0 bg-black/50 overflow-y-auto flex items-start justify-center py-8 z-50">
-      <div className="relative w-full max-w-4xl mx-auto p-5 bg-background dark:bg-card shadow-xl rounded-lg max-h-[90vh] overflow-y-auto text-foreground">
-        <div className="flex justify-between items-center mb-6 sticky top-0 bg-background dark:bg-card pb-4">
+      <div className="relative w-full max-w-4xl mx-auto p-5 bg-card shadow-xl rounded-lg max-h-[90vh] overflow-y-auto text-foreground">
+        <div className="flex justify-between items-center mb-6 sticky top-0 bg-card pb-4">
           <h3 className="text-lg font-medium text-foreground">
             {campaign ? 'Edit Campaign' : 'Create Campaign'}
           </h3>

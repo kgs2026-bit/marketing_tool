@@ -134,7 +134,7 @@ export default function SettingsPage() {
         <p className="mt-2 text-gray-600 dark:text-gray-400">Configure your email provider for sending campaigns</p>
       </div>
 
-      <div className="bg-background dark:bg-card p-6 rounded-lg shadow max-w-2xl">
+      <div className="bg-card p-6 rounded-lg shadow max-w-2xl">
         <form onSubmit={saveConfig} className="space-y-6">
           {/* Provider Selection */}
           <div>

@@ -87,7 +87,7 @@ export default function ConfirmationDialog({
 
         <span className="hidden sm:inline-block sm:h-screen sm:align-middle" aria-hidden="true">&#8203;</span>
 
-        <div className="relative inline-block transform overflow-hidden rounded-lg bg-background dark:bg-card px-4 pt-5 pb-4 text-left align-bottom shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6 sm:align-middle">
+        <div className="relative inline-block transform overflow-hidden rounded-lg bg-card px-4 pt-5 pb-4 text-left align-bottom shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6 sm:align-middle">
           <div className="sm:flex sm:items-start">
             <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
               <div className="flex items-center gap-3 mb-4">

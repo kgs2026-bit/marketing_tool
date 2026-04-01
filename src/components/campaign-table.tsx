@@ -20,7 +20,7 @@ interface CampaignTableProps {
 export default function CampaignTable({ campaigns, loading, onEdit, onDelete }: CampaignTableProps) {
   if (loading) {
     return (
-      <div className="bg-background dark:bg-card shadow rounded-lg overflow-hidden">
+      <div className="bg-card shadow rounded-lg overflow-hidden">
         <div className="animate-pulse">
           <div className="h-10 bg-gray-200 dark:bg-gray-800"></div>
           {[...Array(3)].map((_, i) => (
@@ -43,7 +43,7 @@ export default function CampaignTable({ campaigns, loading, onEdit, onDelete }: 
   }
 
   return (
-    <div className="bg-background dark:bg-card shadow rounded-lg overflow-hidden">
+    <div className="bg-card shadow rounded-lg overflow-hidden">
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-border dark:divide-gray-700">
           <thead className="bg-muted dark:bg-gray-800">
@@ -68,7 +68,7 @@ export default function CampaignTable({ campaigns, loading, onEdit, onDelete }: 
               </th>
             </tr>
           </thead>
-          <tbody className="bg-background dark:bg-card divide-y divide-border dark:divide-gray-700">
+          <tbody className="bg-card divide-y divide-border dark:divide-gray-700">
             {campaigns.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">

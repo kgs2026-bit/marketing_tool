@@ -159,13 +159,6 @@ export default function SettingsPage() {
               </label>
               {provider === 'resend' && (
                 <div className="ml-6 space-y-4">
-                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-md text-sm">
-                    <p className="text-blue-800 dark:text-blue-300">
-                      Domain Email uses the globally configured domain. Make sure your admin has set up
-                      <code className="mx-1 px-1 bg-blue-100 dark:bg-blue-800 rounded">RESEND_FROM_EMAIL</code>
-                      with a verified domain in the email service dashboard.
-                    </p>
-                  </div>
                   <div className="border-t border-blue-200 dark:border-blue-800 pt-4">
                     <label className="block text-sm font-medium text-foreground mb-2">
                       Default Sender Name (optional)

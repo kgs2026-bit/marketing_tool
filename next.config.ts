@@ -1,7 +1,8 @@
+import { withWorkflow } from "workflow/next";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // existing config if any
 };
 
-export default nextConfig;
+export default withWorkflow(nextConfig);

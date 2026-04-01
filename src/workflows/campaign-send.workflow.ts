@@ -122,7 +122,7 @@ async function sendSingleEmailStep(
       personalizedContent = personalizedContent.replace(/\{\{email\}\}/g, contact.email || "");
       personalizedContent = personalizedContent.replace(/\{\{company\}\}/g, contact.company || "");
     }
-    personalizedContent = personalizedContent.replace(/\{\{unsubscribe_link\}\}/g, normalizeUrl(appUrl, `/api/unsubscribe/${recipient.id}`));
+    personalizedContent = personalizedContent.replace(/\{\{unsubscribe_link\}\}/g, `<a href="${normalizeUrl(appUrl, `/api/unsubscribe/${recipient.id}`)}" style="color: #6b7280; text-decoration: underline;">unsubscribe here</a>`);
 
     // Click tracking - find all href URLs
     const urls: string[] = [];

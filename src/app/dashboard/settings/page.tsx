@@ -151,9 +151,9 @@ export default function SettingsPage() {
                   className="h-4 w-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
                 />
                 <span className="ml-2 text-sm text-foreground">
-                  <strong>Resend</strong> (Recommended)
+                  <strong>Domain Email</strong> (Recommended)
                   <span className="block text-xs text-gray-500 dark:text-gray-400">
-                    Use a verified domain with Resend API. Best for production.
+                    Use a verified domain with email API. Best for production.
                   </span>
                 </span>
               </label>
@@ -161,9 +161,9 @@ export default function SettingsPage() {
                 <div className="ml-6 space-y-4">
                   <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-md text-sm">
                     <p className="text-blue-800 dark:text-blue-300">
-                      Resend uses the globally configured domain. Make sure your admin has set up
+                      Domain Email uses the globally configured domain. Make sure your admin has set up
                       <code className="mx-1 px-1 bg-blue-100 dark:bg-blue-800 rounded">RESEND_FROM_EMAIL</code>
-                      with a verified domain in the Resend dashboard.
+                      with a verified domain in the email service dashboard.
                     </p>
                   </div>
                   <div className="border-t border-blue-200 dark:border-blue-800 pt-4">
@@ -266,9 +266,9 @@ export default function SettingsPage() {
       <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-md">
         <h3 className="font-medium text-yellow-900 dark:text-yellow-500 mb-2">Important Notes</h3>
         <ul className="text-sm text-yellow-800 dark:text-yellow-400 space-y-1">
-          <li>• <strong>Resend:</strong> Requires a verified domain in Resend. Admin must set up global credentials.</li>
+          <li>• <strong>Domain Email:</strong> Requires a verified domain. Admin must set up global credentials.</li>
           <li>• <strong>Gmail:</strong> Limited to 500 emails/day. Use App Password, not your regular password.</li>
-          <li>• Credentials are stored per-user but are not encrypted in this demo (use Supabase Vault for production).</li>
+          <li>• Credentials are stored per-user but are not encrypted in this demo (use encrypted storage for production).</li>
           <li>• You can switch providers at any time.</li>
         </ul>
       </div>

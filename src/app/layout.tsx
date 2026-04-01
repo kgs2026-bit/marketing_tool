@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Email Marketing Tool",
-  description: "Automated email marketing with Supabase and Resend",
+  description: "Automated email marketing with database and email integration",
 };
 
 export default function RootLayout({

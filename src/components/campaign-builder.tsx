@@ -629,7 +629,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                       className="h-4 w-4 mt-1 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
                     />
                     <span className="ml-2 text-sm text-foreground">
-                      <strong>Resend</strong> - Fast, reliable, with analytics
+                      <strong>Domain Email</strong> - Fast, reliable, with analytics
                       {formData.email_provider === 'resend' && (
                         <span className="block text-xs text-blue-600 dark:text-blue-400 mt-1">
                           📧 Campaigns will be sent from: {formData.sender_name || senderName} &lt;{senderEmail}&gt;
@@ -723,7 +723,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                     <div className="col-span-2">
                       <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Note</dt>
                       <dd className="text-sm text-amber-600 dark:text-amber-500">
-                        ⚠️ Your domain ({senderEmail.split('@')[1]}) must be verified in Resend.
+                        ⚠️ Your domain ({senderEmail.split('@')[1]}) must be verified with your email service.
                         If not, emails will bounce. Use Gmail provider if you want to send from @gmail.com.
                       </dd>
                     </div>

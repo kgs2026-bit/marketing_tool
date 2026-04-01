@@ -35,7 +35,7 @@ interface CampaignStats {
   opened: number
   clicked: number
   bounced: number
-  recipients: any[] // Raw recipient data with contacts joined
+  recipients: Recipient[] // Raw recipient data with contacts joined
 }
 
 const getStatusBadge = (status: string) => {
@@ -56,6 +56,9 @@ const getStatusBadge = (status: string) => {
 export default function AnalyticsPage() {
   const [stats, setStats] = useState<CampaignStats[]>([])
   const [loading, setLoading] = useState(true)
+  // Pagination state per campaign (keyed by campaign ID)
+  const [pageSizes, setPageSizes] = useState<Record<string, number>>({})
+  const [currentPages, setCurrentPages] = useState<Record<string, number>>({})
   const supabase = createClient()
 
   useEffect(() => {
@@ -136,9 +139,13 @@ export default function AnalyticsPage() {
           })
         }
         const total_sent = recips.length
-        const delivered = recips.filter(r => r.status === 'delivered').length
-        const opened = recips.filter(r => r.status === 'opened').length
-        const clicked = recips.filter(r => r.status === 'clicked').length
+        // Use sent_at timestamp to determine delivered (has been sent), regardless of current status
+        const delivered = recips.filter(r => r.sent_at !== null).length
+        // Opened is based on opened_at timestamp
+        const opened = recips.filter(r => r.opened_at !== null).length
+        // Clicked is based on clicked_at timestamp
+        const clicked = recips.filter(r => r.clicked_at !== null).length
+        // Bounced is still based on status (since bounce is a terminal state)
         const bounced = recips.filter(r => r.status === 'bounced').length
 
         return {
@@ -163,6 +170,16 @@ export default function AnalyticsPage() {
   const calculateRate = (part: number, total: number) => {
     if (total === 0) return 0
     return ((part / total) * 100).toFixed(1)
+  }
+
+  const getPageSize = (campaignId: string) => pageSizes[campaignId] || 20
+  const setPageSize = (campaignId: string, size: number) => {
+    setPageSizes(prev => ({ ...prev, [campaignId]: size }))
+    setCurrentPages(prev => ({ ...prev, [campaignId]: 1 }))
+  }
+  const getCurrentPage = (campaignId: string) => currentPages[campaignId] || 1
+  const setCurrentPage = (campaignId: string, page: number) => {
+    setCurrentPages(prev => ({ ...prev, [campaignId]: page }))
   }
 
   if (loading) {
@@ -241,7 +258,19 @@ export default function AnalyticsPage() {
 
               {/* Recipients Table */}
               <div className="mt-6 border-t pt-4">
-                <h4 className="font-medium text-gray-900 mb-3">Recipients ({recipients.length})</h4>
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="font-medium text-gray-900">Recipients ({recipients.length})</h4>
+                  <select
+                    value={getPageSize(campaign.id)}
+                    onChange={(e) => setPageSize(campaign.id, parseInt(e.target.value))}
+                    className="text-sm border border-gray-300 rounded px-2 py-1"
+                  >
+                    <option value={10}>10 per page</option>
+                    <option value={20}>20 per page</option>
+                    <option value={50}>50 per page</option>
+                    <option value={100}>100 per page</option>
+                  </select>
+                </div>
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
@@ -256,40 +285,106 @@ export default function AnalyticsPage() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {recipients.map((rec: any) => {
-                        // Debug: check what rec.contacts actually is
-                        console.log('Recipient render debug:', { email: rec.email, contacts: rec.contacts })
-                        const contact = rec.contacts
-                        const fullName = contact ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim() : '-'
-                        return (
-                          <tr key={rec.id}>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                              {fullName}
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{rec.email}</td>
-                            <td className="px-4 py-3 whitespace-nowrap">
-                              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(rec.status)}`}>
-                                {rec.status}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                              {rec.sent_at ? new Date(rec.sent_at).toLocaleString() : '-'}
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                              {rec.opened_at ? new Date(rec.opened_at).toLocaleString() : '-'}
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                              {rec.clicked_at ? new Date(rec.clicked_at).toLocaleString() : '-'}
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-red-600">
-                              {rec.bounce_reason || (rec.bounced_at ? 'Bounced' : '-')}
-                            </td>
-                          </tr>
-                        )
-                      })}
+                      {(() => {
+                        const pageSize = getPageSize(campaign.id)
+                        const currentPage = getCurrentPage(campaign.id)
+                        const totalPages = Math.ceil(recipients.length / pageSize)
+                        const start = (currentPage - 1) * pageSize
+                        const end = start + pageSize
+                        const pageRecipients = recipients.slice(start, end)
+
+                        return pageRecipients.map((rec: Recipient) => {
+                          const contact = rec.contacts
+                          const fullName = contact ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim() : '-'
+                          return (
+                            <tr key={rec.id}>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                                {fullName}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{rec.email}</td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(rec.status)}`}>
+                                  {rec.status}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                {rec.sent_at ? new Date(rec.sent_at).toLocaleString() : '-'}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                {rec.opened_at ? new Date(rec.opened_at).toLocaleString() : '-'}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                {rec.clicked_at ? new Date(rec.clicked_at).toLocaleString() : '-'}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-red-600">
+                                {rec.bounce_reason || (rec.bounced_at ? 'Bounced' : '-')}
+                              </td>
+                            </tr>
+                          )
+                        })
+                      })()}
                     </tbody>
                   </table>
                 </div>
+
+                {/* Pagination controls */}
+                {recipients.length > getPageSize(campaign.id) && (() => {
+                  const pageSize = getPageSize(campaign.id)
+                  const currentPage = getCurrentPage(campaign.id)
+                  const totalPages = Math.ceil(recipients.length / pageSize)
+
+                  return (
+                    <div className="flex items-center justify-between mt-3">
+                      <div className="text-sm text-gray-600">
+                        Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, recipients.length)} of {recipients.length} recipients
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => setCurrentPage(campaign.id, Math.max(1, currentPage - 1))}
+                          disabled={currentPage === 1}
+                          className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Previous
+                        </button>
+                        <div className="flex items-center space-x-1">
+                          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                            let pageNum
+                            if (totalPages <= 5) {
+                              pageNum = i + 1
+                            } else if (currentPage <= 3) {
+                              pageNum = i + 1
+                            } else if (currentPage >= totalPages - 2) {
+                              pageNum = totalPages - 4 + i
+                            } else {
+                              pageNum = currentPage - 2 + i
+                            }
+
+                            return (
+                              <button
+                                key={pageNum}
+                                onClick={() => setCurrentPage(campaign.id, pageNum)}
+                                className={`w-8 h-8 text-sm rounded ${
+                                  currentPage === pageNum
+                                    ? 'bg-blue-600 text-white'
+                                    : 'border border-gray-300 hover:bg-gray-50'
+                                }`}
+                              >
+                                {pageNum}
+                              </button>
+                            )
+                          })}
+                        </div>
+                        <button
+                          onClick={() => setCurrentPage(campaign.id, Math.min(totalPages, currentPage + 1))}
+                          disabled={currentPage === totalPages}
+                          className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
             </div>
           ))}

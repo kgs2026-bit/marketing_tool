@@ -160,6 +160,9 @@ export async function sendCampaignWorkflow(campaignId: string) {
 
   const supabase = createSupabaseServerClient();
 
+  console.log(`[Workflow] Attempting to fetch campaign ${campaignId} from Supabase`);
+  console.log(`[Workflow] Supabase URL: ${process.env.NEXT_PUBLIC_SUPABASE_URL}`);
+
   // Fetch campaign with recipients
   const { data: campaign, error: campaignError } = await supabase
     .from("campaigns")
@@ -178,10 +181,19 @@ export async function sendCampaignWorkflow(campaignId: string) {
 
   if (campaignError || !campaign) {
     console.error(`[Workflow] Campaign fetch error:`, campaignError);
+    console.error(`[Workflow] Error details:`, {
+      message: campaignError?.message,
+      code: campaignError?.code,
+      details: campaignError?.details,
+    });
     console.error(`[Workflow] Campaign not found: ${campaignId}. This could mean:`);
     console.error(`  - The campaign ID is incorrect`);
     console.error(`  - The campaign was deleted`);
     console.error(`  - Workflow is connecting to a different Supabase project (check env vars)`);
+    console.error(`  - Service role key is missing or invalid`);
+    console.error(`[Debug] Checking env vars:`);
+    console.error(`  NEXT_PUBLIC_SUPABASE_URL: ${process.env.NEXT_PUBLIC_SUPABASE_URL ? 'SET' : 'MISSING'}`);
+    console.error(`  SUPABASE_SERVICE_ROLE_KEY: ${process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'MISSING'}`);
     throw new FatalError(`Campaign not found: ${campaignId}`);
   }
 

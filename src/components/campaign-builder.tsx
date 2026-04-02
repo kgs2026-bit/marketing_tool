@@ -181,7 +181,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
         const tags = tagFilter.split(',').map(t => t.trim()).filter(t => t)
         if (tags.length > 0) {
           // For Postgres array overlap: contacts that have ANY of the specified tags
-          query = query.overlap('tags', tags)
+          query = query.overlaps('tags', tags)
         }
       }
 
@@ -201,7 +201,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
       if (tagFilter.trim()) {
         const tags = tagFilter.split(',').map(t => t.trim()).filter(t => t)
         if (tags.length > 0) {
-          dataQuery = dataQuery.overlap('tags', tags)
+          dataQuery = dataQuery.overlaps('tags', tags)
         }
       }
 
@@ -293,7 +293,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
           if (tagFilter.trim()) {
             const tags = tagFilter.split(',').map(t => t.trim()).filter(t => t)
             if (tags.length > 0) {
-              query = query.overlap('tags', tags)
+              query = query.overlaps('tags', tags)
             }
           }
 

@@ -39,6 +39,7 @@ export default function Navigation() {
     { href: '/dashboard/templates', label: 'Templates', icon: '📧' },
     { href: '/dashboard/campaigns', label: 'Campaigns', icon: '🚀' },
     { href: '/dashboard/analytics', label: 'Analytics', icon: '📈' },
+    { href: '/dashboard/profile', label: 'Profile', icon: '👤' },
     { href: '/dashboard/settings', label: 'Settings', icon: '⚙️' },
   ]
 

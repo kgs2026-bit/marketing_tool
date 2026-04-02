@@ -60,10 +60,10 @@ export default function ContactTable({
                 <div className="flex items-center gap-1">
                   <input
                     type="checkbox"
-                    checked={contacts.length > 0 && selectedContacts.size === contacts.length}
+                    checked={contacts.length > 0 && contacts.every(c => selectedContacts.has(c.id))}
                     onChange={onSelectAll}
                     className="h-4 w-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
-                    title={selectedContacts.size === contacts.length ? 'Deselect current page' : 'Select current page'}
+                    title={selectedContacts.size === contacts.length ? 'Deselect all on current page' : 'Select all on current page'}
                   />
                   {onSelectAllMode && (
                     <div className="relative group">
@@ -75,19 +75,27 @@ export default function ContactTable({
                       </button>
                       <div className="absolute left-0 mt-1 w-56 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-10 hidden group-hover:block">
                         <div className="py-1">
-                          <button
-                            onClick={() => onSelectAllMode('page')}
-                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                          >
-                            Current page ({contacts.length} contacts)
-                          </button>
-                          <button
-                            onClick={() => onSelectAllMode('all')}
-                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
-                            disabled={totalContacts === 0}
-                          >
-                            All contacts ({totalContacts.toLocaleString()} total)
-                          </button>
+                          {(() => {
+                            const allPageSelected = contacts.length > 0 && contacts.every(c => selectedContacts.has(c.id))
+                            const allSelected = selectedContacts.size === totalContacts && totalContacts > 0
+                            return (
+                              <>
+                                <button
+                                  onClick={() => onSelectAllMode('page')}
+                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                >
+                                  {allPageSelected ? '✓ ' : ''}Current page ({contacts.length} contacts)
+                                </button>
+                                <button
+                                  onClick={() => onSelectAllMode('all')}
+                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+                                  disabled={totalContacts === 0}
+                                >
+                                  {allSelected ? '✓ ' : ''}All contacts ({totalContacts.toLocaleString()} total)
+                                </button>
+                              </>
+                            )
+                          })()}
                         </div>
                       </div>
                     </div>

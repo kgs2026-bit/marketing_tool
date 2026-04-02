@@ -204,10 +204,10 @@ export default function ContactsPage() {
 
       // Compute new tags for each contact
       const updates = currentContacts.map(contact => {
-        const currentTags = contact.tags || []
+        const currentTags: string[] = contact.tags || []
         const newTags = tagAction === 'add'
           ? [...new Set([...currentTags, ...tags])]
-          : currentTags.filter(t => !tags.includes(t))
+          : currentTags.filter((t: string) => !tags.includes(t))
 
         return supabase
           .from('contacts')

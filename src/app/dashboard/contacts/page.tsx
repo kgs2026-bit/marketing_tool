@@ -194,13 +194,26 @@ export default function ContactsPage() {
 
     setLoading(true)
     try {
-      const updates = Array.from(selectedContacts).map(contactId =>
-        supabase.from('contacts').update({
-          tags: tagAction === 'add'
-            ? (prevTags: string[]) => [...new Set([...(prevTags || []), ...tags])]
-            : (prevTags: string[]) => (prevTags || []).filter(t => !tags.includes(t))
-        }).eq('id', contactId)
-      )
+      // Fetch current tags for all selected contacts first
+      const { data: currentContacts, error: fetchError } = await supabase
+        .from('contacts')
+        .select('id, tags')
+        .in('id', Array.from(selectedContacts))
+
+      if (fetchError) throw fetchError
+
+      // Compute new tags for each contact
+      const updates = currentContacts.map(contact => {
+        const currentTags = contact.tags || []
+        const newTags = tagAction === 'add'
+          ? [...new Set([...currentTags, ...tags])]
+          : currentTags.filter(t => !tags.includes(t))
+
+        return supabase
+          .from('contacts')
+          .update({ tags: newTags })
+          .eq('id', contact.id)
+      })
 
       await Promise.all(updates)
       addToast({

@@ -21,6 +21,8 @@ interface ContactTableProps {
   onContactSelect: (id: string, selected: boolean) => void
   onSelectAll: () => void
   onClearSelection: () => void
+  onSelectAllMode?: (mode: 'page' | 'all') => void
+  totalContacts: number
 }
 
 export default function ContactTable({
@@ -31,7 +33,9 @@ export default function ContactTable({
   selectedContacts,
   onContactSelect,
   onSelectAll,
-  onClearSelection
+  onClearSelection,
+  onSelectAllMode,
+  totalContacts
 }: ContactTableProps) {
   if (loading) {
     return (
@@ -52,14 +56,43 @@ export default function ContactTable({
         <table className="min-w-full divide-y divide-border dark:divide-gray-700">
           <thead className="bg-muted dark:bg-gray-800">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                <input
-                  type="checkbox"
-                  checked={contacts.length > 0 && selectedContacts.size === contacts.length}
-                  onChange={onSelectAll}
-                  className="h-4 w-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
-                  title={selectedContacts.size === contacts.length ? 'Deselect all' : 'Select all'}
-                />
+              <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <div className="flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    checked={contacts.length > 0 && selectedContacts.size === contacts.length}
+                    onChange={onSelectAll}
+                    className="h-4 w-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
+                    title={selectedContacts.size === contacts.length ? 'Deselect current page' : 'Select current page'}
+                  />
+                  {onSelectAllMode && (
+                    <div className="relative group">
+                      <button
+                        className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 p-0.5"
+                        title="More selection options"
+                      >
+                        <span className="text-xs">▼</span>
+                      </button>
+                      <div className="absolute left-0 mt-1 w-56 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-10 hidden group-hover:block">
+                        <div className="py-1">
+                          <button
+                            onClick={() => onSelectAllMode('page')}
+                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          >
+                            Current page ({contacts.length} contacts)
+                          </button>
+                          <button
+                            onClick={() => onSelectAllMode('all')}
+                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+                            disabled={totalContacts === 0}
+                          >
+                            All contacts ({totalContacts.toLocaleString()} total)
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Name

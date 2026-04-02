@@ -35,6 +35,7 @@ export default function ContactsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'unsubscribed' | 'bounced'>('all')
   const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set())
+  const [selectAllMode, setSelectAllMode] = useState<'page' | 'all'>('page')
   const [tagAction, setTagAction] = useState<'add' | 'remove'>('add')
   const [tagInput, setTagInput] = useState('')
   const [showTagModal, setShowTagModal] = useState(false)
@@ -111,11 +112,49 @@ export default function ContactsPage() {
     setCurrentPage(1)
   }
 
-  const handleSelectAll = () => {
-    if (selectedContacts.size === contacts.length) {
-      setSelectedContacts(new Set())
+  const handleSelectAll = (mode: 'page' | 'all') => {
+    if (mode === 'page') {
+      // Select/deselect only current page
+      if (selectedContacts.size === contacts.length && Array.from(selectedContacts).every(id => contacts.map(c => c.id).includes(id))) {
+        // Deselect current page contacts
+        const newSelection = new Set(selectedContacts)
+        contacts.forEach(c => newSelection.delete(c.id))
+        setSelectedContacts(newSelection)
+      } else {
+        // Select current page contacts
+        const newSelection = new Set(selectedContacts)
+        contacts.forEach(c => newSelection.add(c.id))
+        setSelectedContacts(newSelection)
+      }
+      setSelectAllMode('page')
     } else {
-      setSelectedContacts(new Set(contacts.map(c => c.id)))
+      // Select/deselect all contacts across all pages
+      if (selectedContacts.size === totalContacts) {
+        // Deselect all
+        setSelectedContacts(new Set())
+      } else {
+        // Need to fetch all contact IDs
+        const fetchAllContactIds = async () => {
+          setLoading(true)
+          try {
+            const { data, error } = await supabase
+              .from('contacts')
+              .select('id')
+              .filter('user_id', 'eq', (await supabase.auth.getUser()).data.user?.id)
+
+            if (error) throw error
+
+            setSelectedContacts(new Set((data || []).map(c => c.id)))
+            setSelectAllMode('all')
+          } catch (error) {
+            console.error('Error fetching all contacts:', error)
+            addToast({ message: 'Failed to select all contacts', type: 'error' })
+          } finally {
+            setLoading(false)
+          }
+        }
+        fetchAllContactIds()
+      }
     }
   }
 
@@ -238,39 +277,47 @@ export default function ContactsPage() {
 
   // Bulk action buttons
   const bulkActions = useMemo(() => {
-    if (selectedContacts.size === 0) return null
-    const allCurrentPageSelected = contacts.length > 0 && selectedContacts.size === contacts.length
+    const hasSelection = selectedContacts.size > 0
     return (
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 flex items-center justify-between">
+      <div className={`${hasSelection ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800' : 'bg-card'} rounded-lg p-4 flex items-center justify-between`}>
         <div className="flex items-center gap-4">
-          <button
-            onClick={() => allCurrentPageSelected ? handleClearSelection() : handleSelectAll()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
-          >
-            {allCurrentPageSelected ? 'Deselect All' : 'Select All'}
-          </button>
-          <button
-            onClick={() => openTagModal('add')}
-            className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium"
-          >
-            + Add Tags
-          </button>
-          <button
-            onClick={() => openTagModal('remove')}
-            className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium"
-          >
-            - Remove Tags
-          </button>
+          <div className="text-sm text-foreground font-medium">
+            {hasSelection ? (
+              <span>{selectedContacts.size.toLocaleString()} contact{selectedContacts.size === 1 ? '' : 's'} selected</span>
+            ) : (
+              <span>Select contacts to perform actions</span>
+            )}
+          </div>
+
+          {hasSelection && (
+            <>
+              <div className="bg-gray-200 dark:bg-gray-700 w-px h-6" />
+              <button
+                onClick={() => openTagModal('add')}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
+              >
+                + Add Tags
+              </button>
+              <button
+                onClick={() => openTagModal('remove')}
+                className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium"
+              >
+                - Remove Tags
+              </button>
+            </>
+          )}
         </div>
-        <button
-          onClick={handleClearSelection}
-          className="text-blue-600 dark:text-blue-400 hover:underline text-sm font-medium"
-        >
-          Clear selection
-        </button>
+        {hasSelection && (
+          <button
+            onClick={handleClearSelection}
+            className="text-blue-600 dark:text-blue-400 hover:underline text-sm font-medium"
+          >
+            Clear
+          </button>
+        )}
       </div>
     )
-  }, [selectedContacts, contacts])
+  }, [selectedContacts])
 
   return (
     <div className="space-y-6">
@@ -403,8 +450,10 @@ export default function ContactsPage() {
         onDelete={handleDelete}
         selectedContacts={selectedContacts}
         onContactSelect={handleContactSelect}
-        onSelectAll={handleSelectAll}
+        onSelectAll={() => handleSelectAll('page')}
         onClearSelection={handleClearSelection}
+        onSelectAllMode={handleSelectAll}
+        totalContacts={totalContacts}
       />
 
       {/* Pagination */}

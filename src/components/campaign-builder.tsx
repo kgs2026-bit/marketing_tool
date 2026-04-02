@@ -40,6 +40,9 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
   const [pageSize, setPageSize] = useState(10)
   const [totalContacts, setTotalContacts] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
+  // Filter states
+  const [tagFilter, setTagFilter] = useState<string>('')
+  const [selectAllMode, setSelectAllMode] = useState<'page' | 'all'>('page')
   const [formData, setFormData] = useState({
     name: '',
     template_id: '',
@@ -83,11 +86,24 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
         setStep(1)
       }
       loadTemplates()
-      loadContacts(1, pageSize) // Reset to page 1 when opening
       loadSenderInfo()
       loadDefaultSenderName()
     }
-  }, [isOpen, campaign, pageSize])
+  }, [isOpen, campaign])
+
+  // Reset to page 1 when tagFilter changes
+  useEffect(() => {
+    if (isOpen && tagFilter !== '') {
+      setCurrentPage(1)
+    }
+  }, [isOpen, tagFilter])
+
+  // Load contacts when page or pageSize changes
+  useEffect(() => {
+    if (isOpen) {
+      loadContacts(currentPage, pageSize)
+    }
+  }, [isOpen, currentPage, pageSize])
 
   const loadSenderInfo = async () => {
     try {
@@ -153,24 +169,44 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
         return
       }
 
-      // Get total count for pagination
-      const { count } = await supabase
+      // Build query with filters
+      let query = supabase
         .from('contacts')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id)
         .eq('status', 'active')
 
+      // Apply tag filter
+      if (tagFilter.trim()) {
+        const tags = tagFilter.split(',').map(t => t.trim()).filter(t => t)
+        if (tags.length > 0) {
+          // For Postgres array overlap: contacts that have ANY of the specified tags
+          query = query.overlap('tags', tags)
+        }
+      }
+
+      // Get total count for pagination
+      const { count } = await query
       const total = count || 0
       setTotalContacts(total)
       setTotalPages(Math.ceil(total / size))
 
       // Get paginated contacts
-      const from = (page - 1) * size
-      const { data } = await supabase
+      let dataQuery = supabase
         .from('contacts')
         .select('*')
         .eq('user_id', user.id)
         .eq('status', 'active')
+
+      if (tagFilter.trim()) {
+        const tags = tagFilter.split(',').map(t => t.trim()).filter(t => t)
+        if (tags.length > 0) {
+          dataQuery = dataQuery.overlap('tags', tags)
+        }
+      }
+
+      const from = (page - 1) * size
+      const { data } = await dataQuery
         .order('created_at', { ascending: false })
         .range(from, from + size - 1)
 
@@ -226,6 +262,57 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
         }
       }
     })
+    setSelectAllMode('page')
+  }
+
+  const handleSelectAll = async (mode: 'page' | 'all') => {
+    if (mode === 'page') {
+      handleSelectAllOnPage()
+      setSelectAllMode('page')
+    } else {
+      // Select all filtered contacts across all pages
+      if (formData.recipient_ids.length === totalContacts) {
+        // Deselect all filtered
+        setFormData((prev) => ({
+          ...prev,
+          recipient_ids: [],
+        }))
+      } else {
+        // Need to fetch all filtered contact IDs
+        setLoadingContacts(true)
+        try {
+          const { data: { user } } = await supabase.auth.getUser()
+          if (!user) return
+
+          let query = supabase
+            .from('contacts')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('status', 'active')
+
+          if (tagFilter.trim()) {
+            const tags = tagFilter.split(',').map(t => t.trim()).filter(t => t)
+            if (tags.length > 0) {
+              query = query.overlap('tags', tags)
+            }
+          }
+
+          const { data, error } = await query
+          if (error) throw error
+
+          const allIds = (data || []).map(c => c.id)
+          setFormData((prev) => ({
+            ...prev,
+            recipient_ids: allIds,
+          }))
+          setSelectAllMode('all')
+        } catch (error) {
+          console.error('Error selecting all:', error)
+        } finally {
+          setLoadingContacts(false)
+        }
+      }
+    }
   }
 
   const goToPage = (page: number) => {
@@ -238,11 +325,6 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
     setPageSize(newSize)
     setCurrentPage(1) // Reset to page 1, effect will reload
   }
-
-  // Calculate how many contacts on current page are selected
-  const selectedOnPageCount = paginatedContacts.filter((c) =>
-    formData.recipient_ids.includes(c.id)
-  ).length
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault()
@@ -455,49 +537,70 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
           {step === 2 && (
             <div className="space-y-4">
               <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="block text-sm font-medium text-foreground">
-                    Select Recipients
-                  </label>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    {formData.recipient_ids.length} total selected
-                    {selectedOnPageCount > 0 && selectedOnPageCount < paginatedContacts.length && (
-                      <span className="ml-2 text-gray-500 dark:text-gray-400">({selectedOnPageCount} on this page)</span>
-                    )}
-                  </div>
-                  {/* Page size selector */}
-                  <select
-                    value={pageSize}
-                    onChange={handlePageSizeChange}
-                    className="px-2 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700 dark:text-gray-300 shadow-sm"
-                  >
-                    <option value={10}>10 per page</option>
-                    <option value={20}>20 per page</option>
-                    <option value={50}>50 per page</option>
-                    <option value={100}>100 per page</option>
-                  </select>
-                </div>
-
-                {/* Select All on current page checkbox */}
-                {!loadingContacts && paginatedContacts.length > 0 && (
-                  <div className="mb-2 flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={
-                        paginatedContacts.length > 0 &&
-                        selectedOnPageCount === paginatedContacts.length
-                      }
-                      onChange={handleSelectAllOnPage}
-                      className="h-4 w-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 mr-2"
-                    />
-                    <label className="text-sm text-foreground cursor-pointer">
-                      Select all on this page ({paginatedContacts.length} contacts)
-                      {selectedOnPageCount === paginatedContacts.length && (
-                        <span className="ml-2 text-green-600 dark:text-green-400">✓ All selected</span>
+                {/* Filter and Selection Controls */}
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+                  <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                    <div className="flex-1 w-full sm:w-auto">
+                      <label className="block text-sm font-medium text-foreground mb-1">
+                        Filter by Tags (comma-separated)
+                      </label>
+                      <input
+                        type="text"
+                        value={tagFilter}
+                        onChange={(e) => {
+                          setTagFilter(e.target.value)
+                          setCurrentPage(1) // Reset to page 1 when filter changes
+                        }}
+                        placeholder="e.g., vip, customer, new"
+                        className="w-full sm:w-64 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      {tagFilter && (
+                        <button
+                          type="button"
+                          onClick={() => setTagFilter('')}
+                          className="mt-1 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                        >
+                          Clear tag filter
+                        </button>
                       )}
-                    </label>
+                    </div>
+
+                    <div className="flex items-center gap-4 w-full sm:w-auto">
+                      <div className="relative group">
+                        <button
+                          type="button"
+                          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium inline-flex items-center gap-2"
+                        >
+                          {formData.recipient_ids.length === totalContacts && totalContacts > 0 ? '✓ All Selected' : 'Select All'}
+                          <span className="text-xs">▼</span>
+                        </button>
+                        <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-10 hidden group-hover:block">
+                          <div className="py-1">
+                            <button
+                              type="button"
+                              onClick={() => handleSelectAll('page')}
+                              className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                            >
+                              Current page ({paginatedContacts.length} contacts)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSelectAll('all')}
+                              className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+                              disabled={totalContacts === 0}
+                            >
+                              All filtered contacts ({totalContacts.toLocaleString()} total)
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                        {formData.recipient_ids.length} of {totalContacts} selected
+                      </div>
+                    </div>
                   </div>
-                )}
+                </div>
 
                 {/* Contacts list */}
                 <div className="border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden">
@@ -507,7 +610,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                     </div>
                   ) : paginatedContacts.length === 0 ? (
                     <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400">
-                      No contacts yet. Add contacts first.
+                      No contacts match your filters.
                       <br />
                       <a href="/contacts" className="text-blue-600 dark:text-blue-400 hover:underline ml-2">
                         Go to Contacts
@@ -519,8 +622,9 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                       <div className="bg-muted dark:bg-gray-800 grid grid-cols-12 gap-2 px-4 py-2 border-b border-gray-200 dark:border-gray-700 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                         <div className="col-span-1"></div>
                         <div className="col-span-4">Name</div>
-                        <div className="col-span-4">Email</div>
-                        <div className="col-span-3">Company</div>
+                        <div className="col-span-3">Email</div>
+                        <div className="col-span-2">Tags</div>
+                        <div className="col-span-2">Company</div>
                       </div>
 
                       {/* Table rows */}
@@ -543,10 +647,25 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                                 ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || '—'
                                 : '—'}
                             </div>
-                            <div className="col-span-4 text-sm text-foreground truncate">
+                            <div className="col-span-3 text-sm text-foreground truncate">
                               {contact.email}
                             </div>
-                            <div className="col-span-3 text-sm text-gray-500 dark:text-gray-400 truncate">
+                            <div className="col-span-2 text-sm text-gray-500 dark:text-gray-400 truncate">
+                              <div className="flex flex-wrap gap-1">
+                                {(contact.tags || []).slice(0, 2).map((tag: string) => (
+                                  <span
+                                    key={tag}
+                                    className="px-1.5 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 rounded"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                                {(contact.tags || []).length > 2 && (
+                                  <span className="text-xs text-gray-400">+{(contact.tags || []).length - 2}</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="col-span-2 text-sm text-gray-500 dark:text-gray-400 truncate">
                               {contact.company || '—'}
                             </div>
                           </label>

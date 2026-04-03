@@ -110,6 +110,21 @@ async function sendSingleEmailStep(
 
     // Personalize content
     let htmlContent = campaign.templates?.html_content || campaign.html_content || "";
+
+    // CRITICAL CHECK: Look for any __TAG_* placeholders in the ORIGINAL template
+    const originalTags = htmlContent.match(/__TAG_\d+__/g) || [];
+    if (originalTags.length > 0) {
+      console.error(`[Workflow] CRITICAL: Template already contains ${originalTags.length} __TAG_* placeholders!`);
+      console.error(`[Workflow] First few:`, originalTags.slice(0, 5));
+      console.error(`[Workflow] This indicates the template HTML is corrupted or was previously processed by another system.`);
+      // Log context around these placeholders
+      originalTags.slice(0, 3).forEach((tag, i) => {
+        const idx = htmlContent.indexOf(tag);
+        const context = htmlContent.substring(Math.max(0, idx - 100), Math.min(htmlContent.length, idx + tag.length + 100));
+        console.error(`[Workflow] Context for placeholder ${i + 1}: ...${context}...`);
+      });
+    }
+
     const trackingPixel = `<img src="${normalizeUrl(appUrl, `/api/track/open/${recipient.id}`)}" width="1" height="1" alt="" style="display:none;" />`;
 
     if (htmlContent.includes("</body>")) {
@@ -163,13 +178,19 @@ async function sendSingleEmailStep(
     }
 
     // 2b. Find plain text URLs in the masked content
-    const plainUrlRegex = /https?:\/\/[^\s<>"']+/gi;
+    // IMPORTANT: URL must end at whitespace, tag boundary, or punctuation - NOT capture following template tags
+    const plainUrlRegex = /https?:\/\/[^\s<>"'`{}[\]]+/gi;
     let plainMatch;
     while ((plainMatch = plainUrlRegex.exec(maskedContent)) !== null) {
       const url = plainMatch[0];
-      if (!urlMap.has(url)) {
-        const trackingId = crypto.randomUUID();
-        urlMap.set(url, trackingId);
+      // Validate that the URL doesn't contain template syntax or HTML entities
+      if (!url.includes('{{') && !url.includes('{%') && !url.includes('__TAG_') && !url.includes('&')) {
+        if (!urlMap.has(url)) {
+          const trackingId = crypto.randomUUID();
+          urlMap.set(url, trackingId);
+        }
+      } else {
+        console.log(`[Workflow] Skipping malformed URL that contains template/HTML syntax: ${url.substring(0, 100)}`);
       }
     }
 

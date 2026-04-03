@@ -118,7 +118,7 @@ async function sendSingleEmailStep(
       console.error(`[Workflow] First few:`, originalTags.slice(0, 5));
       console.error(`[Workflow] This indicates the template HTML is corrupted or was previously processed by another system.`);
       // Log context around these placeholders
-      originalTags.slice(0, 3).forEach((tag, i) => {
+      originalTags.slice(0, 3).forEach((tag: string, i: number) => {
         const idx = htmlContent.indexOf(tag);
         const context = htmlContent.substring(Math.max(0, idx - 100), Math.min(htmlContent.length, idx + tag.length + 100));
         console.error(`[Workflow] Context for placeholder ${i + 1}: ...${context}...`);

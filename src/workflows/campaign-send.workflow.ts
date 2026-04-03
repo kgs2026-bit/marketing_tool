@@ -253,7 +253,7 @@ async function sendSingleEmailStep(
     const badUrls = (personalizedContent.match(/https?:\/\/[^\s<>"']*__TAG_\d+__[^\s<>"']*/gi) || []);
     if (badUrls.length > 0) {
       console.error(`[Workflow] ERROR: Found ${badUrls.length} URLs still containing __TAG_ placeholders!`);
-      badUrls.slice(0, 3).forEach((url, i) => {
+      badUrls.slice(0, 3).forEach((url: string, i: number) => {
         console.error(`[Workflow]   Bad URL ${i + 1}: ${url.substring(0, 150)}`);
       });
     }

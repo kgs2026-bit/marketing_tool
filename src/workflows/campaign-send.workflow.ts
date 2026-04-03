@@ -132,27 +132,31 @@ async function sendSingleEmailStep(
     // Click tracking - track ALL URLs (href + plain text)
     const urlMap = new Map<string, string>();
 
-    // 1. Find all URLs in href attributes
-    const hrefRegex = /href\s*=\s*["']([^"']+)["']/gi;
-    let hrefMatch;
-    while ((hrefMatch = hrefRegex.exec(personalizedContent)) !== null) {
-      const url = hrefMatch[1];
-      if (url.startsWith("http") && !urlMap.has(url)) {
-        const trackingId = crypto.randomUUID();
-        urlMap.set(url, trackingId);
-      }
-    }
-
-    // 2. Find plain text URLs (outside HTML tags)
-    // Mask all tags to avoid matching URLs inside tag attributes
+    // Step 1: Mask all HTML tags ONCE with a consistent tagging system
     const tags: string[] = [];
-    const withoutTags = personalizedContent.replace(/<[^>]*>/g, (tag: string) => {
+    const maskedContent = personalizedContent.replace(/<[^>]*>/g, (tag: string) => {
       tags.push(tag);
       return `__TAG_${tags.length - 1}__`;
     });
+
+    // Step 2: Find all URLs in the masked content
+    // 2a. Find URLs in href attributes (need to look inside tag placeholders)
+    // We need to check the original tags for href attributes
+    for (const tag of tags) {
+      const hrefMatch = /href\s*=\s*["']([^"']+)["']/i.exec(tag);
+      if (hrefMatch) {
+        const url = hrefMatch[1];
+        if (url.startsWith("http") && !urlMap.has(url)) {
+          const trackingId = crypto.randomUUID();
+          urlMap.set(url, trackingId);
+        }
+      }
+    }
+
+    // 2b. Find plain text URLs in the masked content
     const plainUrlRegex = /https?:\/\/[^\s<>"']+/gi;
     let plainMatch;
-    while ((plainMatch = plainUrlRegex.exec(withoutTags)) !== null) {
+    while ((plainMatch = plainUrlRegex.exec(maskedContent)) !== null) {
       const url = plainMatch[0];
       if (!urlMap.has(url)) {
         const trackingId = crypto.randomUUID();
@@ -160,9 +164,9 @@ async function sendSingleEmailStep(
       }
     }
 
-    console.log(`[Workflow] Found ${urlMap.size} unique URLs to track (href + plain text)`);
+    console.log(`[Workflow] Found ${urlMap.size} unique URLs to track`);
 
-    // Create tracking link records in DB
+    // Step 3: Create tracking link records in DB
     const trackingLinksToCreate = Array.from(urlMap.entries()).map(([url, trackingId]) => ({
       tracking_id: trackingId,
       campaign_recipient_id: recipient.id,
@@ -182,45 +186,49 @@ async function sendSingleEmailStep(
       console.log(`[Workflow] No tracking links created (no URLs found)`);
     }
 
-    // 3. Replace href attributes with tracking URLs
-    // Sort URLs by length descending to avoid partial replacements
+    // Step 4: Replace URLs in the masked content
+    // Sort by length descending to avoid partial replacements
     const sortedUrls = Array.from(urlMap.keys()).sort((a, b) => b.length - a.length);
-    let hrefReplacedCount = 0;
-    for (const url of sortedUrls) {
-      const trackingId = urlMap.get(url)!;
-      const trackingUrl = normalizeUrl(appUrl, `/api/track/click/${trackingId}`);
-      const count1 = (personalizedContent.match(new RegExp(`href="${url}"`, 'g')) || []).length;
-      const count2 = (personalizedContent.match(new RegExp(`href='${url}'`, 'g')) || []).length;
-      personalizedContent = personalizedContent.replaceAll(`href="${url}"`, `href="${trackingUrl}"`);
-      personalizedContent = personalizedContent.replaceAll(`href='${url}'`, `href="${trackingUrl}"`);
-      hrefReplacedCount += count1 + count2;
+    let maskedResult = maskedContent;
+
+    // 4a. Replace href attributes - we need to work with the original tags
+    for (let i = 0; i < tags.length; i++) {
+      const originalTag = tags[i];
+      let modifiedTag = originalTag;
+
+      for (const url of sortedUrls) {
+        const trackingId = urlMap.get(url)!;
+        const trackingUrl = normalizeUrl(appUrl, `/api/track/click/${trackingId}`);
+
+        // Replace href in this tag
+        modifiedTag = modifiedTag.replace(
+          new RegExp(`href\\s*=\\s*["']${escapeRegex(url)}["']`, 'gi'),
+          `href="${trackingUrl}"`
+        );
+      }
+
+      tags[i] = modifiedTag; // Update the tag with replacements
     }
-    console.log(`[Workflow] Replaced ${hrefReplacedCount} href occurrences with tracking URLs`);
 
-    // 4. Replace plain text URLs with clickable tracking links (outside tags)
-    // Mask tags again in the current personalizedContent (after href replacements)
-    const tags2: string[] = [];
-    let withoutTags2 = personalizedContent.replace(/<[^>]*>/g, (tag: string) => {
-      tags2.push(tag);
-      return `__TAG_${tags2.length - 1}__`;
-    });
-
-    let plainReplacedCount = 0;
+    // 4b. Replace plain text URLs with clickable tracking links
     for (const url of sortedUrls) {
       const trackingId = urlMap.get(url)!;
       const trackingUrl = normalizeUrl(appUrl, `/api/track/click/${trackingId}`);
-      // Use regex to replace all occurrences (case-insensitive)
       const regex = new RegExp(escapeRegex(url), 'gi');
-      const matches = withoutTags2.match(regex) || [];
+      const matches = maskedResult.match(regex) || [];
+
       if (matches.length > 0) {
-        plainReplacedCount += matches.length;
-        withoutTags2 = withoutTags2.replace(regex, `<a href="${trackingUrl}">${url}</a>`);
+        maskedResult = maskedResult.replace(regex, `<a href="${trackingUrl}">${url}</a>`);
       }
     }
 
-    // Unmask tags
-    personalizedContent = withoutTags2.replace(/__TAG_(\d+)__/g, (match: string, idx: string) => tags2[parseInt(idx)]);
-    console.log(`[Workflow] Replaced ${plainReplacedCount} plain text URL occurrences with tracking links`);
+    // Step 5: Unmask all tags in one go
+    personalizedContent = maskedResult.replace(/__TAG_(\d+)__/g, (match: string, idx: string) => {
+      const tagIndex = parseInt(idx);
+      return tagIndex < tags.length ? tags[tagIndex] : match;
+    });
+
+    console.log(`[Workflow] Replaced URLs with tracking links`);
     console.log(`[Workflow] Final HTML length: ${personalizedContent.length} chars`);
 
     // Send email

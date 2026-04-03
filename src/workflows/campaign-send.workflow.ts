@@ -129,6 +129,15 @@ async function sendSingleEmailStep(
     }
     personalizedContent = personalizedContent.replace(/\{\{unsubscribe_link\}\}/g, `<a href="${normalizeUrl(appUrl, `/api/unsubscribe/${recipient.id}`)}" style="color: #6b7280; text-decoration: underline;">unsubscribe here</a>`);
 
+    // DEBUG: Log sample of content before URL processing
+    console.log(`[Workflow] Content before URL processing (first 500 chars):`);
+    console.log(personalizedContent.substring(0, 500));
+    // Check if content already contains bad tags
+    const earlyTags = (personalizedContent.match(/__TAG_\d+__/g) || []).length;
+    if (earlyTags > 0) {
+      console.error(`[Workflow] WARNING: Content already contains ${earlyTags} __TAG_* placeholders BEFORE URL processing!`);
+    }
+
     // Click tracking - track ALL URLs (href + plain text)
     const urlMap = new Map<string, string>();
 
@@ -228,8 +237,26 @@ async function sendSingleEmailStep(
       return tagIndex < tags.length ? tags[tagIndex] : match;
     });
 
+    // Safety cleanup: remove any remaining __TAG_* placeholders that somehow survived
+    const afterUnmask = personalizedContent;
+    const cleanedContent = afterUnmask.replace(/__TAG_\d+__/g, '');
+    const removedCount = (afterUnmask.match(/__TAG_\d+__/g) || []).length;
+    if (removedCount > 0) {
+      console.error(`[Workflow] WARNING: Removed ${removedCount} stray __TAG_* placeholders that survived unmasking`);
+      personalizedContent = cleanedContent;
+    }
+
     console.log(`[Workflow] Replaced URLs with tracking links`);
     console.log(`[Workflow] Final HTML length: ${personalizedContent.length} chars`);
+
+    // Additional diagnostics: check for any URLs that still contain __TAG_
+    const badUrls = (personalizedContent.match(/https?:\/\/[^\s<>"']*__TAG_\d+__[^\s<>"']*/gi) || []);
+    if (badUrls.length > 0) {
+      console.error(`[Workflow] ERROR: Found ${badUrls.length} URLs still containing __TAG_ placeholders!`);
+      badUrls.slice(0, 3).forEach((url, i) => {
+        console.error(`[Workflow]   Bad URL ${i + 1}: ${url.substring(0, 150)}`);
+      });
+    }
 
     // Send email
     const subject = (campaign.templates?.subject || campaign.subject || "").replace(/\{\{first_name\}\}/g, contact?.first_name || "");

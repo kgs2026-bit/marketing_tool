@@ -41,8 +41,7 @@ CREATE TABLE campaigns (
   subject VARCHAR(500),
   content TEXT,
   html_content TEXT,
-  recipient_list JSONB DEFAULT '[]', -- array of contact IDs (for backward compatibility)
-  recipient_criteria JSONB DEFAULT '{}', -- dynamic selection criteria
+  recipient_list JSONB DEFAULT '[]', -- array of contact IDs or segment criteria
   scheduled_at TIMESTAMPTZ,
   sent_at TIMESTAMPTZ,
   status VARCHAR(50) DEFAULT 'draft' CHECK (status IN ('draft', 'scheduled', 'sending', 'sent', 'cancelled')),
@@ -181,58 +180,6 @@ CREATE TRIGGER update_templates_updated_at BEFORE UPDATE ON templates
 
 CREATE TRIGGER update_campaigns_updated_at BEFORE UPDATE ON campaigns
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- Function to refresh campaign recipients
-CREATE OR REPLACE FUNCTION refresh_campaign_recipients(campaign_id UUID)
-RETURNS TABLE (
-  contact_id UUID,
-  email VARCHAR(255),
-  status VARCHAR(50)
-) AS $$
-DECLARE
-  campaign_record campaigns%ROWTYPE;
-  contact RECORD;
-BEGIN
-  -- Get campaign details
-  SELECT * INTO campaign_record FROM campaigns WHERE id = campaign_id;
-
-  -- Clear existing recipients
-  DELETE FROM campaign_recipients WHERE campaign_id = campaign_id;
-
-  -- Insert new recipients based on criteria
-  IF campaign_record.recipient_criteria IS NOT NULL AND jsonb_typeof(campaign_record.recipient_criteria) = 'object' THEN
-    -- Dynamic criteria-based selection
-    SELECT * INTO contact FROM contacts
-    WHERE user_id = campaign_record.user_id
-    AND status = 'active';
-
-    -- Apply filters based on criteria
-    IF campaign_record.recipient_criteria ? 'tags' AND campaign_record.recipient_criteria->'tags' IS NOT NULL THEN
-      -- This would need to be implemented with JSONB operators
-      -- For now, we'll just get all active contacts
-    END IF;
-
-    -- Insert all matching contacts
-    INSERT INTO campaign_recipients (campaign_id, contact_id, email, status)
-    SELECT campaign_id, id, email, 'pending'
-    FROM contacts
-    WHERE user_id = campaign_record.user_id
-    AND status = 'active';
-  ELSE
-    -- Static ID-based selection (existing logic)
-    INSERT INTO campaign_recipients (campaign_id, contact_id, email, status)
-    SELECT campaign_id, contact_id, email, 'pending'
-    FROM (
-      SELECT UNNEST(campaign_record.recipient_list::UUID[]) AS contact_id
-    ) AS contact_ids
-    LEFT JOIN contacts ON contacts.id = contact_ids.contact_id
-    WHERE contacts.user_id = campaign_record.user_id
-      AND contacts.status = 'active';
-  END IF;
-
-  RETURN QUERY SELECT id, email, status FROM campaign_recipients WHERE campaign_id = campaign_id;
-END;
-$$ LANGUAGE plpgsql;
 
 -- User Email Provider Configuration (for Gmail/Resend selection)
 CREATE TABLE user_email_configs (

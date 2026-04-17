@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClientAction } from '@/lib/supabase/server'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ recipientId: string }> }
 ) {
-  const supabase = await createClientAction()
+  const supabase = await createSupabaseServerClient()
   const { recipientId } = await params
-  const { searchParams } = new URL(request.url)
+  const { searchParams } = await new URL(request.url)
   const emailParam = searchParams.get('email')
 
   try {

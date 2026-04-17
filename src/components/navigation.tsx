@@ -2,31 +2,40 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { createClient } from '@/lib/supabase/browser-client'
 import { useEffect, useState } from 'react'
 import { useTheme } from '@/components/providers/theme-provider'
+import { createClient } from '@/lib/supabase/browser-client'
 
 export default function Navigation() {
   const pathname = usePathname()
-  const supabase = createClient()
   const { theme, setTheme, actualTheme } = useTheme()
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const supabase = createClient()
 
   useEffect(() => {
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      setLoading(false)
+      try {
+        const response = await fetch('/api/auth/session')
+        const data = await response.json()
+        setUser(data.user)
+      } catch (err) {
+        console.error('Failed to get user session:', err)
+      } finally {
+        setLoading(false)
+      }
     }
+
     getUser()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-    })
+    // Listen for storage changes (when user logs in/out in another tab)
+    const handleStorageChange = () => {
+      getUser()
+    }
 
-    return () => subscription.unsubscribe()
-  }, [supabase.auth])
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
+  }, [])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()

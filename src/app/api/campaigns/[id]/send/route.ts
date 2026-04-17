@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClientAction } from '@/lib/supabase/server'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { start } from 'workflow/api'
 import { sendCampaignWorkflow } from '@/workflows/campaign-send.workflow'
 
@@ -8,7 +8,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const supabase = await createClientAction()
+  const supabase = await createSupabaseServerClient()
 
   // Check for cron secret (for scheduled campaigns)
   const cronSecret = request.headers.get('x-cron-secret')
@@ -77,29 +77,58 @@ export async function POST(
       return NextResponse.json({ error: 'No recipients specified' }, { status: 400 })
     }
 
-    // Create campaign_recipients from contact IDs
-    const contactIds = campaign.recipient_list
+    // Create campaign_recipients based on campaign criteria
+    let contacts: any[] = []
+    let recipientData: any[] = []
 
-    const { data: contacts, error: contactsError } = await supabase
-      .from('contacts')
-      .select('id, email')
-      .in('id', contactIds)
-      .neq('status', 'unsubscribed')
+    if (campaign.recipient_criteria && Object.keys(campaign.recipient_criteria).length > 0) {
+      // Dynamic criteria-based selection
+      const { data: filteredContacts, error: criteriaError } = await supabase
+        .from('contacts')
+        .select('id, email, first_name, last_name, company')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
 
-    if (contactsError) {
-      console.error('Error fetching contacts:', contactsError)
-      return NextResponse.json({ error: 'Failed to fetch contacts' }, { status: 500 })
+      if (criteriaError) {
+        console.error('Error fetching contacts by criteria:', criteriaError)
+        return NextResponse.json({ error: 'Failed to fetch contacts' }, { status: 500 })
+      }
+
+      // Apply tag filter if specified
+      if (campaign.recipient_criteria.tags && Array.isArray(campaign.recipient_criteria.tags)) {
+        contacts = filteredContacts.filter((contact: any) =>
+          campaign.recipient_criteria.tags.some((tag: string) =>
+            contact.tags && contact.tags.includes(tag)
+          )
+        )
+      } else {
+        contacts = filteredContacts
+      }
+    } else if (campaign.recipient_list && campaign.recipient_list.length > 0) {
+      // Static ID-based selection
+      const { data: staticContacts, error: staticError } = await supabase
+        .from('contacts')
+        .select('id, email, first_name, last_name, company')
+        .in('id', campaign.recipient_list)
+        .eq('status', 'active')
+
+      if (staticError) {
+        console.error('Error fetching contacts by IDs:', staticError)
+        return NextResponse.json({ error: 'Failed to fetch contacts' }, { status: 500 })
+      }
+
+      contacts = staticContacts
     }
 
     if (contacts.length === 0) {
       return NextResponse.json(
-        { error: 'All contacts have unsubscribed or no valid contacts found' },
+        { error: 'No valid contacts found based on selection criteria' },
         { status: 400 }
       )
     }
 
     // Create recipient records
-    const recipientData = contacts.map((contact: any) => ({
+    recipientData = contacts.map((contact: any) => ({
       campaign_id: campaign.id,
       contact_id: contact.id,
       email: contact.email,

@@ -1,0 +1,53 @@
+{
+  "version": "1.0.0",
+  "steps": {
+    "node_modules/workflow/dist/internal/builtins.js": {
+      "__builtin_response_array_buffer": {
+        "stepId": "__builtin_response_array_buffer"
+      },
+      "__builtin_response_json": {
+        "stepId": "__builtin_response_json"
+      },
+      "__builtin_response_text": {
+        "stepId": "__builtin_response_text"
+      }
+    },
+    "node_modules/workflow/dist/stdlib.js": {
+      "fetch": {
+        "stepId": "step//workflow@4.2.0-beta.74//fetch"
+      }
+    },
+    "src/workflows/campaign-send.workflow.ts": {
+      "fetchAuthUserStep": {
+        "stepId": "step//./src/workflows/campaign-send.workflow//fetchAuthUserStep"
+      },
+      "fetchCampaignStep": {
+        "stepId": "step//./src/workflows/campaign-send.workflow//fetchCampaignStep"
+      },
+      "fetchRecipientsStep": {
+        "stepId": "step//./src/workflows/campaign-send.workflow//fetchRecipientsStep"
+      },
+      "postgrest": {
+        "stepId": "step//./src/workflows/campaign-send.workflow//postgrest"
+      },
+      "sendSingleEmailStep": {
+        "stepId": "step//./src/workflows/campaign-send.workflow//sendSingleEmailStep"
+      },
+      "updateCampaignStatusStep": {
+        "stepId": "step//./src/workflows/campaign-send.workflow//updateCampaignStatusStep"
+      }
+    }
+  },
+  "workflows": {
+    "src/workflows/campaign-send.workflow.ts": {
+      "sendCampaignWorkflow": {
+        "workflowId": "workflow//./src/workflows/campaign-send.workflow//sendCampaignWorkflow",
+        "graph": {
+          "nodes": [],
+          "edges": []
+        }
+      }
+    }
+  },
+  "classes": {}
+}

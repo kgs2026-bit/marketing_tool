@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClientAction } from '@/lib/supabase/server'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ trackingId: string }> }
 ) {
   const { trackingId } = await params
-  const supabase = await createClientAction()
+  const supabase = await createSupabaseServerClient()
 
   try {
     // Find the tracking link with current click count

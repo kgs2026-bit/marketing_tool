@@ -43,6 +43,9 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
   // Filter states
   const [tagFilter, setTagFilter] = useState<string>('')
   const [selectAllMode, setSelectAllMode] = useState<'page' | 'all'>('page')
+  const [availableTags, setAvailableTags] = useState<string[]>([])
+  const [showTagSuggestions, setShowTagSuggestions] = useState(false)
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [formData, setFormData] = useState({
     name: '',
     template_id: '',
@@ -88,6 +91,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
       loadTemplates()
       loadSenderInfo()
       loadDefaultSenderName()
+      loadAvailableTags()
     }
   }, [isOpen, campaign])
 
@@ -105,6 +109,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
     }
   }, [isOpen, currentPage, pageSize])
 
+  
   const loadSenderInfo = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -135,6 +140,27 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
       }
     } catch (error) {
       console.error('Error loading default sender name:', error)
+    }
+  }
+
+  const loadAvailableTags = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Get all unique tags for this user
+      const { data } = await supabase
+        .from('contacts')
+        .select('tags')
+        .eq('user_id', user.id)
+        .not('tags', 'is', '{}')
+
+      // Extract unique tags
+      const allTags = (data || []).flatMap(contact => contact.tags || [])
+      const uniqueTags = [...new Set(allTags)].sort()
+      setAvailableTags(uniqueTags)
+    } catch (error) {
+      console.error('Error loading tags:', error)
     }
   }
 
@@ -266,6 +292,11 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
   }
 
   const handleSelectAll = async (mode: 'page' | 'all') => {
+    // Don't allow selecting all when tag filter is active
+    if (tagFilter && tagFilter.trim()) {
+      return
+    }
+
     if (mode === 'page') {
       handleSelectAllOnPage()
       setSelectAllMode('page')
@@ -303,9 +334,9 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
           const allIds = (data || []).map(c => c.id)
           setFormData((prev) => ({
             ...prev,
-            recipient_ids: allIds,
+            recipient_ids: tagFilter && tagFilter.trim() ? [] : allIds,
           }))
-          setSelectAllMode('all')
+          setSelectAllMode(tagFilter && tagFilter.trim() ? 'page' : 'all')
         } catch (error) {
           console.error('Error selecting all:', error)
         } finally {
@@ -332,8 +363,8 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
     setError(null)
 
     try {
-      if (formData.recipient_ids.length === 0) {
-        throw new Error('Please select at least one recipient')
+      if (formData.recipient_ids.length === 0 && !tagFilter.trim()) {
+        throw new Error('Please select at least one recipient or specify tag filters')
       }
 
       // Get current user for RLS
@@ -349,7 +380,19 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
         subject: formData.subject || null,
         content: formData.content || null,
         html_content: formData.html_content || null,
-        recipient_list: formData.recipient_ids,
+        recipient_list: tagFilter && tagFilter.trim() ? [] : formData.recipient_ids,
+        recipient_criteria: {
+          ...(tagFilter && tagFilter.trim() ? {
+            tags: tagFilter.split(',').map(t => t.trim()).filter(t => t),
+            filter_mode: 'tag',
+            created_at: new Date().toISOString()
+          } : {
+            ...(formData.recipient_ids.length > 0 ? {
+              contact_ids: formData.recipient_ids,
+              filter_mode: 'manual'
+            } : {})
+          })
+        },
         scheduled_at: formData.scheduled_at ? new Date(formData.scheduled_at).toISOString() : null,
         status: formData.scheduled_at ? 'scheduled' : 'draft',
         email_provider: formData.email_provider,
@@ -371,6 +414,38 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
       }
 
       onSave()
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleRefreshRecipients = async () => {
+    if (!campaign) return
+
+    setSaving(true)
+    setError(null)
+    try {
+      const response = await fetch(`/api/campaigns/${campaign.id}/refresh-recipients`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to refresh recipients')
+      }
+
+      const result = await response.json()
+
+      if (result.success) {
+        addToast({ message: `Recipients refreshed successfully! Found ${result.count} contacts.`, type: 'success' })
+      } else {
+        throw new Error(result.message)
+      }
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -571,7 +646,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                           type="button"
                           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium inline-flex items-center gap-2"
                         >
-                          {formData.recipient_ids.length === totalContacts && totalContacts > 0 ? '✓ All Selected' : 'Select All'}
+                          {tagFilter && tagFilter.trim() ? 'Tag Filter Active' : (formData.recipient_ids.length === totalContacts && totalContacts > 0 ? '✓ All Selected' : 'Select All')}
                           <span className="text-xs">▼</span>
                         </button>
                         <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-10 hidden group-hover:block">
@@ -587,16 +662,20 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                               type="button"
                               onClick={() => handleSelectAll('all')}
                               className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
-                              disabled={totalContacts === 0}
+                              disabled={totalContacts === 0 || !!tagFilter?.trim()}
                             >
                               All filtered contacts ({totalContacts.toLocaleString()} total)
+                              {(tagFilter && tagFilter.trim()) && <span className="text-xs text-gray-500 ml-1">(disabled with tag filter)</span>}
                             </button>
                           </div>
                         </div>
                       </div>
 
                       <div className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                        {formData.recipient_ids.length} of {totalContacts} selected
+                        {tagFilter && tagFilter.trim()
+                          ? `Filtered by tags: ${tagFilter}`
+                          : `${formData.recipient_ids.length} of ${totalContacts} selected`
+                        }
                       </div>
                     </div>
                   </div>
@@ -805,7 +884,7 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                 <button
                   type="button"
                   onClick={() => setStep(3)}
-                  disabled={formData.recipient_ids.length === 0}
+                  disabled={formData.recipient_ids.length === 0 && !tagFilter.trim()}
                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                 >
                   Next
@@ -849,8 +928,25 @@ export default function CampaignBuilder({ isOpen, onClose, onSave, campaign }: C
                   )}
                   <div>
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Recipients</dt>
-                    <dd className="text-sm text-foreground">{formData.recipient_ids.length} contacts</dd>
+                    <dd className="text-sm text-foreground">
+                        {tagFilter && tagFilter.trim()
+                          ? `Filtered by tags: ${tagFilter}`
+                          : `${formData.recipient_ids.length} contacts`
+                        }
+                      </dd>
                   </div>
+                  {campaign && (
+                    <div className="col-span-2">
+                      <button
+                        type="button"
+                        onClick={handleRefreshRecipients}
+                        disabled={saving}
+                        className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 disabled:opacity-50"
+                      >
+                        {saving ? 'Refreshing...' : 'Refresh Recipients'}
+                      </button>
+                    </div>
+                  )}
                   <div>
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Schedule</dt>
                     <dd className="text-sm text-foreground">

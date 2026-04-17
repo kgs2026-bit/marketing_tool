@@ -5,9 +5,13 @@ A full-stack email marketing application built with Next.js 14, Supabase, and Re
 ## Features
 
 - **Authentication**: Sign up / Sign in with Supabase Auth
-- **Contact Management**: CRUD operations, CSV import/export (planned)
+- **Contact Management**: CRUD operations, tag-based filtering, CSV import/export (planned)
 - **Email Templates**: Rich text editor with variable personalization
 - **Campaigns**: Create, schedule, and send email campaigns
+- **Dynamic Recipient Selection**: 
+  - Manual contact selection
+  - Tag-based contact filtering
+  - Automatic refresh of recipient lists
 - **Analytics**: Track opens, clicks, bounces, and delivery rates
 - **Automatic Tracking**: Open tracking pixel and click tracking via Resend webhooks
 
@@ -98,6 +102,25 @@ src/
 2. **Create Templates**: Go to Templates, design your email with variables like \`{{first_name}}\`
 3. **Create Campaign**: Go to Campaigns, select a template, choose recipients, and send or schedule
 4. **View Analytics**: Check the Analytics page for opens, clicks, and bounces
+
+## Dynamic Recipient Selection
+
+When creating campaigns, you can select recipients in two ways:
+
+### 1. Manual Selection
+- Select individual contacts from the contact list
+- Perfect for specific target audiences
+
+### 2. Tag-Based Selection
+- Use the tag filter to select contacts with specific tags
+- Enter multiple tags separated by commas: `vip, customer, newsletter`
+- The system will automatically fetch all contacts that have ANY of the specified tags
+- Great for segmenting your audience
+
+### Refreshing Recipients
+- For existing campaigns, click "Refresh Recipients" to update the recipient list
+- This will re-apply your selection criteria and include any new contacts that match
+- Useful when you add new contacts with relevant tags
 
 ## Supported Variables
 

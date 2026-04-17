@@ -46,14 +46,81 @@ async function postgrest(path: string, method: string = 'GET', body?: any, heade
 // Step: fetch campaign
 async function fetchCampaignStep(campaignId: string) {
   "use step";
+  console.log(`[Workflow] Fetching campaign: ${campaignId}`);
   const data = await postgrest(
-    `/rest/v1/campaigns?id=eq.${campaignId}&select=*,templates(id,name,subject,html_content),campaign_recipients(id,email,contact_id,contacts(id,email,first_name,last_name,company))`,
+    `/rest/v1/campaigns?id=eq.${campaignId}&select=*,templates(id,name,subject,html_content),recipient_criteria,campaign_recipients(id,email,contact_id,contacts(id,email,first_name,last_name,company))`,
     'GET'
   );
   if (!data || data.length === 0) {
     throw new FatalError(`Campaign not found: ${campaignId}`);
   }
   return data[0];
+}
+
+// Step: fetch recipients based on campaign criteria
+async function fetchRecipientsStep(campaignId: string, campaign: any) {
+  "use step";
+  console.log(`[Workflow] Fetching recipients for campaign: ${campaignId}`);
+
+  // Check if we need to refresh recipients based on criteria
+  if (campaign.recipient_criteria && Object.keys(campaign.recipient_criteria).length > 0) {
+    console.log(`[Workflow] Using dynamic recipient criteria:`, campaign.recipient_criteria);
+
+    // For tag-based selection
+    if (campaign.recipient_criteria.tags && Array.isArray(campaign.recipient_criteria.tags)) {
+      const tagList = campaign.recipient_criteria.tags;
+      console.log(`[Workflow] Fetching contacts with tags: ${tagList.join(', ')}`);
+
+      // Fetch contacts with these tags
+      const contactsData = await postgrest(
+        `/rest/v1/contacts?user_id=eq.${campaign.user_id}&status=eq.active&tags=cs.{${tagList.join(',')}}&select=id,email,first_name,last_name,company,tags`,
+        'GET'
+      );
+
+      const recipients = contactsData.map((contact: any) => ({
+        id: crypto.randomUUID(),
+        campaign_id: campaignId,
+        contact_id: contact.id,
+        email: contact.email,
+        status: 'pending',
+        contacts: contact
+      }));
+
+      console.log(`[Workflow] Found ${recipients.length} contacts with specified tags`);
+      return recipients;
+    }
+
+    // For manual selection (existing)
+    if (campaign.recipient_criteria.contact_ids && Array.isArray(campaign.recipient_criteria.contact_ids)) {
+      console.log(`[Workflow] Using manual contact selection: ${campaign.recipient_criteria.contact_ids.length} contacts`);
+
+      const contactsData = await postgrest(
+        `/rest/v1/contacts?user_id=eq.${campaign.user_id}&status=eq.active&id=in.(${campaign.recipient_criteria.contact_ids.join(',')})&select=id,email,first_name,last_name,company,tags`,
+        'GET'
+      );
+
+      const recipients = contactsData.map((contact: any) => ({
+        id: crypto.randomUUID(),
+        campaign_id: campaignId,
+        contact_id: contact.id,
+        email: contact.email,
+        status: 'pending',
+        contacts: contact
+      }));
+
+      return recipients;
+    }
+  }
+
+  // Fallback to existing recipients
+  if (campaign.campaign_recipients && campaign.campaign_recipients.length > 0) {
+    console.log(`[Workflow] Using existing recipients: ${campaign.campaign_recipients.length}`);
+    return campaign.campaign_recipients;
+  }
+
+  // No recipients found
+  console.log(`[Workflow] No recipients found`);
+  return [];
 }
 
 // Step: fetch auth user
@@ -342,10 +409,14 @@ export async function sendCampaignWorkflow(campaignId: string) {
 
   // Fetch campaign (step)
   const campaign = await fetchCampaignStep(campaignId);
-  console.log(`[Workflow] Campaign: ${campaign.name}, recipients: ${campaign.campaign_recipients?.length || 0}`);
+  console.log(`[Workflow] Campaign: ${campaign.name}, existing recipients: ${campaign.campaign_recipients?.length || 0}`);
+
+  // Fetch recipients based on criteria (step)
+  const campaignRecipients = await fetchRecipientsStep(campaignId, campaign);
+  console.log(`[Workflow] Fetched recipients: ${campaignRecipients.length}`);
 
   // Filter recipients
-  const recipientsToSend = (campaign.campaign_recipients || []).filter((recipient: any) => {
+  const recipientsToSend = campaignRecipients.filter((recipient: any) => {
     const contact = recipient.contacts;
     return contact?.status !== "unsubscribed";
   });
@@ -353,6 +424,7 @@ export async function sendCampaignWorkflow(campaignId: string) {
   console.log(`[Workflow] Filtered recipients: ${recipientsToSend.length}`);
 
   if (recipientsToSend.length === 0) {
+    console.log('[Workflow] No recipients to send to');
     await updateCampaignStatusStep(campaignId, "sent", new Date().toISOString());
     return { success: true, sent: 0, failed: 0, total: 0 };
   }

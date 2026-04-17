@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Direct Fetch Test</title>
+</head>
+<body>
+  <h1>Fetch Test (outside Next.js)</h1>
+  <button onclick="test()">Test fetch to Supabase</button>
+  <pre id="output"></pre>
+
+  <script>
+    const output = document.getElementById('output')
+
+    function log(msg) {
+      output.textContent += msg + '\n'
+      console.log(msg)
+    }
+
+    async function test() {
+      output.textContent = ''
+      log('Testing fetch to Supabase...')
+
+      try {
+        const res = await fetch('https://acwwxlneuqcpqdntdbnj.supabase.co/auth/v1/health', {
+          method: 'HEAD',
+          mode: 'cors'
+        })
+        log('Status: ' + res.status)
+        log('Status text: ' + res.statusText)
+        log('Type: ' + res.type)
+      } catch (err) {
+        log('Error: ' + err.message)
+        log('Name: ' + err.name)
+      }
+    }
+  </script>
+</body>
+</html>

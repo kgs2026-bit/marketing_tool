@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClientAction } from '@/lib/supabase/server'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
-  const supabase = await createClientAction()
+  const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClientAction()
+  const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
@@ -31,6 +31,23 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
+
+  // Prepare recipient criteria
+  let recipientList = []
+  let recipientCriteria = {}
+
+  if (body.recipient_ids && Array.isArray(body.recipient_ids)) {
+    recipientList = body.recipient_ids
+  }
+
+  // If tag filter was used, store criteria
+  if (body.tag_filter && Array.isArray(body.tag_filter) && body.tag_filter.length > 0) {
+    recipientCriteria = {
+      tags: body.tag_filter,
+      filter_mode: 'tag',
+      created_at: new Date().toISOString()
+    }
+  }
 
   const { data, error } = await supabase
     .from('campaigns')
@@ -41,7 +58,8 @@ export async function POST(request: NextRequest) {
       subject: body.subject || null,
       content: body.content || null,
       html_content: body.html_content || null,
-      recipient_list: body.recipient_list || [],
+      recipient_list: recipientList,
+      recipient_criteria: recipientCriteria,
       scheduled_at: body.scheduled_at || null,
       status: body.scheduled_at ? 'scheduled' : 'draft',
       email_provider: body.email_provider || 'resend',

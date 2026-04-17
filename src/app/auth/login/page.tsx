@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/browser-client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
@@ -11,8 +10,8 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [debugInfo, setDebugInfo] = useState<string | null>(null)
   const router = useRouter()
-  const supabase = createClient()
 
   useEffect(() => {
     // Check for query parameters on mount (client-side only)
@@ -30,19 +29,32 @@ export default function LoginPage() {
     setError(null)
     setLoading(true)
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    try {
+      console.log('[LoginPage] Calling server login API')
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      })
 
-    if (error) {
-      setError(error.message)
-    } else {
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Login failed')
+      }
+
+      console.log('[LoginPage] Login successful:', data)
+      // Redirect to dashboard - the session cookies are already set
       router.push('/dashboard')
       router.refresh()
+    } catch (err: any) {
+      console.error('[LoginPage] Login error:', err)
+      setError(err.message || 'Invalid email or password')
+    } finally {
+      setLoading(false)
     }
-
-    setLoading(false)
   }
 
   return (
@@ -114,6 +126,12 @@ export default function LoginPage() {
           {error && (
             <div className="text-red-600 dark:text-red-400 text-sm text-center bg-red-50 dark:bg-red-900/20 p-3 rounded-md">
               {error}
+            </div>
+          )}
+
+          {debugInfo && (
+            <div className="text-yellow-600 dark:text-yellow-400 text-sm text-center bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-md">
+              <strong>Debug:</strong> {debugInfo}
             </div>
           )}
 

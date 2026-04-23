@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/browser-client'
 import { useRouter } from 'next/navigation'
 
 export default function ForgotPasswordPage() {
@@ -9,7 +8,6 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const router = useRouter()
-  const supabase = createClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -17,19 +15,29 @@ export default function ForgotPasswordPage() {
     setMessage(null)
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/update-password`,
+      console.log('[ForgotPassword] Attempting to send reset email to:', email)
+
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
       })
 
-      if (error) {
-        throw error
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send reset email')
       }
 
+      console.log('[ForgotPassword] Reset email sent successfully')
       setMessage({
         type: 'success',
         text: 'Password reset instructions have been sent to your email. Please check your inbox (and spam folder).'
       })
     } catch (err: any) {
+      console.error('[ForgotPassword] Failed to send reset email:', err)
       setMessage({
         type: 'error',
         text: err.message || 'Failed to send reset email'

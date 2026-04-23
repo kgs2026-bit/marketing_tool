@@ -15,7 +15,20 @@ export default function UpdatePasswordPage() {
   useEffect(() => {
     // Check if we have a recovery token in the URL
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
+      console.log('[UpdatePassword] Checking session...')
+      const { data: { session }, error } = await supabase.auth.getSession()
+
+      if (error) {
+        console.error('[UpdatePassword] Session check error:', error)
+        setMessage({
+          type: 'error',
+          text: 'Error checking session. Please try again.'
+        })
+        return
+      }
+
+      console.log('[UpdatePassword] Session found:', session)
+
       if (!session) {
         setMessage({
           type: 'error',
@@ -44,14 +57,17 @@ export default function UpdatePasswordPage() {
     }
 
     try {
+      console.log('[UpdatePassword] Attempting to update password...')
       const { error } = await supabase.auth.updateUser({
         password: password
       })
 
       if (error) {
+        console.error('[UpdatePassword] Error updating password:', error)
         throw error
       }
 
+      console.log('[UpdatePassword] Password updated successfully')
       setMessage({
         type: 'success',
         text: 'Password updated successfully! Redirecting to login...'
@@ -62,6 +78,7 @@ export default function UpdatePasswordPage() {
         router.push('/auth/login')
       }, 2000)
     } catch (err: any) {
+      console.error('[UpdatePassword] Failed to update password:', err)
       setMessage({
         type: 'error',
         text: err.message || 'Failed to update password'

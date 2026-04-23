@@ -27,11 +27,13 @@ export default function DashboardStats() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        console.log('[DashboardStats] Checking auth session...')
         const { data: { session }, error } = await supabase.auth.getSession()
 
         if (error) {
           console.error('Auth check error:', error)
         } else {
+          console.log('[DashboardStats] Session found:', session)
           setIsAuthenticated(!!session)
         }
       } catch (err) {

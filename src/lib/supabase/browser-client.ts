@@ -97,20 +97,28 @@ function createCustomStorage() {
         // localStorage might be disabled
       }
 
-      // Then try cookies
-      const cookieName = `sb-${key}`
-      const cookies = document.cookie
-        .split(';')
-        .map((c) => c.trim())
-        .filter(Boolean)
+      // Try both cookie formats: sb-auth-token and sb-[url]-auth-token
+      const cookieNames = [
+        `sb-${key}`,
+        `sb-${process.env.NEXT_PUBLIC_SUPABASE_URL!.split('//')[1].replace('.', '-')}-${key}`
+      ]
 
-      for (const cookie of cookies) {
-        const [name, value] = cookie.split('=')
-        if (name === cookieName) {
-          return decodeURIComponent(value)
+      for (const cookieName of cookieNames) {
+        const cookies = document.cookie
+          .split(';')
+          .map((c) => c.trim())
+          .filter(Boolean)
+
+        for (const cookie of cookies) {
+          const [name, value] = cookie.split('=')
+          if (name === cookieName) {
+            console.log(`[storage] Found cookie: ${cookieName}`)
+            return decodeURIComponent(value)
+          }
         }
       }
 
+      console.log(`[storage] Cookie not found for key: ${key}`)
       return null
     },
     setItem: (key: string, value: string): void => {

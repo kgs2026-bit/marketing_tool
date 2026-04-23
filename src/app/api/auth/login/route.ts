@@ -63,14 +63,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Set secure HttpOnly cookies in the format Supabase expects
+    // Set secure HttpOnly cookies
     const cookieStore = await cookies()
     const accessToken = session.access_token
     const refreshToken = session.refresh_token
     const expiresAt = new Date(session.expires_at! * 1000)
 
-    // Set the access token cookie
-    cookieStore.set('sb-acwwxlneuqcpqdntdbnj-auth-token', accessToken, {
+    // Set the access token cookie in standard format
+    cookieStore.set('sb-auth-token', accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Set the session cookie that Supabase browser client expects
-    cookieStore.set('sb-acwwxlneuqcpqdntdbnj-auth-token', JSON.stringify({
+    cookieStore.set('sb-auth-token', JSON.stringify({
       access_token: accessToken,
       refresh_token: refreshToken,
       expires_at: session.expires_at,
@@ -93,9 +93,9 @@ export async function POST(request: NextRequest) {
       path: '/',
     })
 
-    // Also set refresh token cookie
+    // Also set refresh token cookie in standard format
     if (refreshToken) {
-      cookieStore.set('sb-acwwxlneuqcpqdntdbnj-refresh-token', refreshToken, {
+      cookieStore.set('sb-refresh-token', refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',

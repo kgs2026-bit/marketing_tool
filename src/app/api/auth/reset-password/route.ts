@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server-client'
+import { createClient } from '@supabase/supabase-js'
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,7 +14,19 @@ export async function POST(request: NextRequest) {
 
     console.log('[API/ResetPassword] Request to reset password for:', email)
 
-    const supabase = createServerClient()
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Missing Supabase environment variables')
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    })
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/update-password`,

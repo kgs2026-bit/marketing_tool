@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 export default function UpdatePasswordPage() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [currentPassword, setCurrentPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const router = useRouter()
@@ -29,11 +30,19 @@ export default function UpdatePasswordPage() {
 
       console.log('[UpdatePassword] Session found:', session)
 
+      // For password reset flow, we expect a session with the reset token
       if (!session) {
-        setMessage({
-          type: 'error',
-          text: 'Invalid or expired reset link. Please request a new one.'
-        })
+        // Check if there's a token in the URL
+        const hash = window.location.hash
+        if (hash && hash.includes('type=recovery')) {
+          // The user needs to complete the recovery flow
+          console.log('[UpdatePassword] Found recovery token in URL')
+        } else {
+          setMessage({
+            type: 'error',
+            text: 'Invalid or expired reset link. Please request a new one.'
+          })
+        }
       }
     }
     checkSession()
@@ -56,14 +65,32 @@ export default function UpdatePasswordPage() {
       return
     }
 
+    if (!currentPassword) {
+      setMessage({ type: 'error', text: 'Current password is required' })
+      setLoading(false)
+      return
+    }
+
     try {
       console.log('[UpdatePassword] Attempting to update password...')
+
+      // When using a reset token, we should use the confirmPassword method
       const { error } = await supabase.auth.updateUser({
         password: password
       })
 
       if (error) {
         console.error('[UpdatePassword] Error updating password:', error)
+
+        // If it's an authentication error, try a different approach
+        if (error.message.includes('current password')) {
+          setMessage({
+            type: 'error',
+            text: 'Session expired. Please request a new password reset.'
+          })
+          return
+        }
+
         throw error
       }
 
@@ -102,6 +129,22 @@ export default function UpdatePasswordPage() {
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
+              <label htmlFor="current-password" className="sr-only">
+                Current Password
+              </label>
+              <input
+                id="current-password"
+                name="current-password"
+                type="password"
+                autoComplete="current-password"
+                required
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-base bg-white dark:bg-gray-800"
+                placeholder="Current password"
+              />
+            </div>
+            <div>
               <label htmlFor="password" className="sr-only">
                 New Password
               </label>
@@ -113,7 +156,7 @@ export default function UpdatePasswordPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-base bg-white dark:bg-gray-800"
+                className="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-base bg-white dark:bg-gray-800"
                 placeholder="New password (min 6 characters)"
               />
             </div>

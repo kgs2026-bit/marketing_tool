@@ -83,6 +83,66 @@ function createBlockingDetection() {
   return { init, isBlocked: () => isBlocked }
 }
 
+// Custom storage that syncs with server-set cookies
+function createCustomStorage() {
+  return {
+    getItem: (key: string): string | null => {
+      if (typeof window === 'undefined') return null
+
+      // First try localStorage
+      try {
+        const localValue = localStorage.getItem(`sb-${key}`)
+        if (localValue) return localValue
+      } catch (e) {
+        // localStorage might be disabled
+      }
+
+      // Then try cookies
+      const cookieName = `sb-${key}`
+      const cookies = document.cookie
+        .split(';')
+        .map((c) => c.trim())
+        .filter(Boolean)
+
+      for (const cookie of cookies) {
+        const [name, value] = cookie.split('=')
+        if (name === cookieName) {
+          return decodeURIComponent(value)
+        }
+      }
+
+      return null
+    },
+    setItem: (key: string, value: string): void => {
+      if (typeof window === 'undefined') return
+
+      try {
+        localStorage.setItem(`sb-${key}`, value)
+      } catch (e) {
+        // ignore
+      }
+
+      const expires = new Date()
+      expires.setFullYear(expires.getFullYear() + 1)
+      const cookieName = `sb-${key}`
+      const cookieString = `${cookieName}=${encodeURIComponent(value)}; path=/; expires=${expires.toUTCString()}`
+      document.cookie = cookieString
+    },
+    removeItem: (key: string): void => {
+      if (typeof window === 'undefined') return
+
+      try {
+        localStorage.removeItem(`sb-${key}`)
+      } catch (e) {
+        // ignore
+      }
+
+      const cookieName = `sb-${key}`
+      document.cookie = `${cookieName}=; path=/; max-age=0`
+    },
+  }
+}
+
 let cachedClient: SupabaseClient | null = null
 
 export const createClient = (): SupabaseClient => {
@@ -115,7 +175,7 @@ export const createClient = (): SupabaseClient => {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        storage: createCookieSyncStorage(),
+        storage: createCustomStorage(),
         flowType: 'pkce',
       },
       global: {

@@ -16,10 +16,37 @@ interface Campaign {
 export default function RecentCampaigns() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [loading, setLoading] = useState(true)
+  const [authLoading, setAuthLoading] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const supabase = createClient()
 
   useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession()
+
+        if (error) {
+          console.error('Auth check error:', error)
+        } else {
+          setIsAuthenticated(!!session)
+        }
+      } catch (err) {
+        console.error('Auth check failed:', err)
+      } finally {
+        setAuthLoading(false)
+      }
+    }
+
+    checkAuth()
+  }, [supabase])
+
+  useEffect(() => {
     const fetchCampaigns = async () => {
+      if (!isAuthenticated) {
+        setLoading(false)
+        return
+      }
+
       try {
         const { data, error } = await supabase
           .from('campaigns')
@@ -36,8 +63,10 @@ export default function RecentCampaigns() {
       }
     }
 
-    fetchCampaigns()
-  }, [supabase])
+    if (isAuthenticated) {
+      fetchCampaigns()
+    }
+  }, [supabase, isAuthenticated])
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
@@ -50,7 +79,7 @@ export default function RecentCampaigns() {
     return styles[status] || 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300'
   }
 
-  if (loading) {
+  if (authLoading) {
     return (
       <div className="bg-card shadow rounded-lg p-6">
         <h2 className="text-lg font-medium text-foreground mb-4">Recent Campaigns</h2>
@@ -59,6 +88,17 @@ export default function RecentCampaigns() {
             <div key={i} className="h-16 bg-gray-200 dark:bg-gray-800 rounded"></div>
           ))}
         </div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="bg-card shadow rounded-lg p-6">
+        <h2 className="text-lg font-medium text-foreground mb-4">Recent Campaigns</h2>
+        <p className="text-center text-gray-500 dark:text-gray-400">
+          Please log in to view your campaigns.
+        </p>
       </div>
     )
   }

@@ -20,10 +20,37 @@ export default function DashboardStats() {
     totalUnsubscribed: 0,
   })
   const [loading, setLoading] = useState(true)
+  const [authLoading, setAuthLoading] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const supabase = createClient()
 
   useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession()
+
+        if (error) {
+          console.error('Auth check error:', error)
+        } else {
+          setIsAuthenticated(!!session)
+        }
+      } catch (err) {
+        console.error('Auth check failed:', err)
+      } finally {
+        setAuthLoading(false)
+      }
+    }
+
+    checkAuth()
+  }, [supabase])
+
+  useEffect(() => {
     const fetchStats = async () => {
+      if (!isAuthenticated) {
+        setLoading(false)
+        return
+      }
+
       try {
         // Get total contacts
         const { count: contactsCount } = await supabase
@@ -66,10 +93,12 @@ export default function DashboardStats() {
       }
     }
 
-    fetchStats()
-  }, [supabase])
+    if (isAuthenticated) {
+      fetchStats()
+    }
+  }, [supabase, isAuthenticated])
 
-  if (loading) {
+  if (authLoading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         {[1, 2, 3, 4, 5].map((i) => (
@@ -78,6 +107,16 @@ export default function DashboardStats() {
             <div className="h-8 bg-gray-200 dark:bg-gray-800 rounded w-3/4"></div>
           </div>
         ))}
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="bg-card p-6 rounded-lg shadow">
+        <p className="text-center text-gray-500 dark:text-gray-400">
+          Please log in to view your dashboard data.
+        </p>
       </div>
     )
   }

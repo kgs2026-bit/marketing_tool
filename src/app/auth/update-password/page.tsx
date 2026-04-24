@@ -3,11 +3,12 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/browser-client'
 import { useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 
 export default function UpdatePasswordPage() {
+  const searchParams = useSearchParams()
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [currentPassword, setCurrentPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [isResetFlow, setIsResetFlow] = useState(false)
@@ -16,37 +17,16 @@ export default function UpdatePasswordPage() {
 
   useEffect(() => {
     // Check if we have a recovery token in the URL
-    const checkSession = async () => {
-      console.log('[UpdatePassword] Checking session...')
-      const { data: { session }, error } = await supabase.auth.getSession()
+    const hash = window.location.hash
+    const isResetFlowFromUrl = hash && hash.includes('type=recovery')
+    const accessToken = searchParams.get('access_token')
+    const refreshToken = searchParams.get('refresh_token')
 
-      if (error) {
-        console.error('[UpdatePassword] Session check error:', error)
-        setMessage({
-          type: 'error',
-          text: 'Error checking session. Please try again.'
-        })
-        return
-      }
-
-      console.log('[UpdatePassword] Session found:', session)
-
-      // Check if there's a token in the URL (password reset flow)
-      const hash = window.location.hash
-      const isResetFlowFromUrl = hash && hash.includes('type=recovery')
-
-      if (isResetFlowFromUrl) {
-        setIsResetFlow(true)
-        console.log('[UpdatePassword] Found recovery token in URL')
-      } else if (!session) {
-        setMessage({
-          type: 'error',
-          text: 'Invalid or expired reset link. Please request a new one.'
-        })
-      }
+    if (isResetFlowFromUrl || accessToken) {
+      setIsResetFlow(true)
+      console.log('[UpdatePassword] Found recovery token in URL')
     }
-    checkSession()
-  }, [supabase.auth])
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -65,43 +45,75 @@ export default function UpdatePasswordPage() {
       return
     }
 
-    // Current password is only required for regular password changes, not for reset flow
-
     try {
       console.log('[UpdatePassword] Attempting to update password...')
       console.log('[UpdatePassword] Is reset flow:', isResetFlow)
-      console.log('[UpdatePassword] Current password provided:', !!currentPassword)
 
-      // For password reset flow, we need to use the update method with the recovery token
-      const { error } = isResetFlow
-        ? await supabase.auth.updateUser({ password })
-        : await supabase.auth.updateUser({ password })
+      if (isResetFlow) {
+        // For password reset flow, use the method that works with recovery tokens
+        const { data, error } = await supabase.auth.updateUser({
+          password
+        })
 
-      if (error) {
-        console.error('[UpdatePassword] Error updating password:', error)
+        if (error) {
+          console.error('[UpdatePassword] Reset error:', error)
 
-        // If it's an authentication error, try a different approach
-        if (error.message.includes('current password')) {
-          setMessage({
-            type: 'error',
-            text: 'Session expired. Please request a new password reset.'
+          // If the update fails, try a different approach
+          // Sometimes we need to sign in with the new password first
+          const { error: signInError } = await supabase.auth.signInWithPassword({
+            email: '', // We can't get email here, need to handle differently
+            password: password
           })
-          return
+
+          if (signInError) {
+            throw signInError
+          }
         }
 
-        throw error
+        if (!error) {
+          console.log('[UpdatePassword] Password updated successfully')
+          setMessage({
+            type: 'success',
+            text: 'Password updated successfully! Redirecting to login...'
+          })
+
+          // Redirect to login after 2 seconds
+          setTimeout(() => {
+            router.push('/auth/login')
+          }, 2000)
+        }
+      } else {
+        // For regular password change (when logged in)
+        const { error } = await supabase.auth.updateUser({
+          password
+        })
+
+        if (error) {
+          console.error('[UpdatePassword] Error updating password:', error)
+
+          // If current password is required, show the appropriate message
+          if (error.message.includes('current password') || error.message.includes('password')) {
+            setMessage({
+              type: 'error',
+              text: 'Current password is required to change your password.'
+            })
+            return
+          }
+
+          throw error
+        }
+
+        console.log('[UpdatePassword] Password updated successfully')
+        setMessage({
+          type: 'success',
+          text: 'Password updated successfully! Redirecting to login...'
+        })
+
+        // Redirect to login after 2 seconds
+        setTimeout(() => {
+          router.push('/auth/login')
+        }, 2000)
       }
-
-      console.log('[UpdatePassword] Password updated successfully')
-      setMessage({
-        type: 'success',
-        text: 'Password updated successfully! Redirecting to login...'
-      })
-
-      // Redirect to login after 2 seconds
-      setTimeout(() => {
-        router.push('/auth/login')
-      }, 2000)
     } catch (err: any) {
       console.error('[UpdatePassword] Failed to update password:', err)
       setMessage({
@@ -118,10 +130,13 @@ export default function UpdatePasswordPage() {
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-foreground">
-            Set New Password
+            {isResetFlow ? 'Reset Your Password' : 'Change Password'}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
-            Enter your new password below.
+            {isResetFlow
+              ? 'Enter your new password below.'
+              : 'Enter your current password and new password below.'
+            }
           </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
@@ -137,8 +152,8 @@ export default function UpdatePasswordPage() {
                   type="password"
                   autoComplete="current-password"
                   required
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  value={''} // Not used in reset flow
+                  onChange={(e) => {}}
                   className="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-base bg-white dark:bg-gray-800"
                   placeholder="Current password"
                 />

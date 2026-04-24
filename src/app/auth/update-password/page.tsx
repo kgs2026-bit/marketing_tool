@@ -3,10 +3,8 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/browser-client'
 import { useRouter } from 'next/navigation'
-import { useSearchParams } from 'next/navigation'
 
 export default function UpdatePasswordPage() {
-  const searchParams = useSearchParams()
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -19,14 +17,14 @@ export default function UpdatePasswordPage() {
     // Check if we have a recovery token in the URL
     const hash = window.location.hash
     const isResetFlowFromUrl = hash && hash.includes('type=recovery')
-    const accessToken = searchParams.get('access_token')
-    const refreshToken = searchParams.get('refresh_token')
+    const urlParams = new URLSearchParams(window.location.search)
+    const accessToken = urlParams.get('access_token')
 
     if (isResetFlowFromUrl || accessToken) {
       setIsResetFlow(true)
       console.log('[UpdatePassword] Found recovery token in URL')
     }
-  }, [searchParams])
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

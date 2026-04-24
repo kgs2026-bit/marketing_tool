@@ -69,15 +69,13 @@ export default function UpdatePasswordPage() {
 
     try {
       console.log('[UpdatePassword] Attempting to update password...')
+      console.log('[UpdatePassword] Is reset flow:', isResetFlow)
+      console.log('[UpdatePassword] Current password provided:', !!currentPassword)
 
       // For password reset flow, we need to use the update method with the recovery token
       const { error } = isResetFlow
         ? await supabase.auth.updateUser({ password })
-        : await supabase.auth.updateUser({
-            password: password,
-            // For regular password change, include current password
-            data: { currentPassword }
-          })
+        : await supabase.auth.updateUser({ password })
 
       if (error) {
         console.error('[UpdatePassword] Error updating password:', error)

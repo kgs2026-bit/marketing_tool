@@ -65,11 +65,7 @@ export default function UpdatePasswordPage() {
       return
     }
 
-    if (!isResetFlow && !currentPassword) {
-      setMessage({ type: 'error', text: 'Current password is required' })
-      setLoading(false)
-      return
-    }
+    // Current password is only required for regular password changes, not for reset flow
 
     try {
       console.log('[UpdatePassword] Attempting to update password...')

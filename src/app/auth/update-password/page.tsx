@@ -23,6 +23,19 @@ export default function UpdatePasswordPage() {
     if (isResetFlowFromUrl || accessToken) {
       setIsResetFlow(true)
       console.log('[UpdatePassword] Found recovery token in URL')
+
+      // Set up a listener for auth state changes
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'PASSWORD_RECOVERY' && session) {
+          console.log('[UpdatePassword] Auth state changed to PASSWORD_RECOVERY')
+          // We have a valid session from the recovery token
+        }
+      })
+
+      // Clean up the subscription
+      return () => {
+        subscription.unsubscribe()
+      }
     }
   }, [])
 
@@ -48,38 +61,54 @@ export default function UpdatePasswordPage() {
       console.log('[UpdatePassword] Is reset flow:', isResetFlow)
 
       if (isResetFlow) {
-        // For password reset flow, use the method that works with recovery tokens
-        const { data, error } = await supabase.auth.updateUser({
+        // For password reset flow, we need to get the current user first
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
+
+        if (userError) {
+          console.error('[UpdatePassword] Error getting user:', userError)
+          throw new Error('Unable to verify your identity. Please try the reset link again.')
+        }
+
+        if (!user) {
+          throw new Error('Invalid reset link. Please request a new password reset.')
+        }
+
+        // Now update the password
+        const { error } = await supabase.auth.updateUser({
           password
         })
 
         if (error) {
           console.error('[UpdatePassword] Reset error:', error)
 
-          // If the update fails, try a different approach
-          // Sometimes we need to sign in with the new password first
-          const { error: signInError } = await supabase.auth.signInWithPassword({
-            email: '', // We can't get email here, need to handle differently
-            password: password
-          })
-
-          if (signInError) {
-            throw signInError
+          // Handle specific error cases
+          if (error.message.includes('email') || error.message.includes('phone')) {
+            setMessage({
+              type: 'error',
+              text: 'Session expired. Please request a new password reset from the email.'
+            })
+            return
+          } else if (error.message.includes('new password')) {
+            setMessage({
+              type: 'error',
+              text: 'New password cannot be the same as the old password.'
+            })
+            return
+          } else {
+            throw error
           }
         }
 
-        if (!error) {
-          console.log('[UpdatePassword] Password updated successfully')
-          setMessage({
-            type: 'success',
-            text: 'Password updated successfully! Redirecting to login...'
-          })
+        console.log('[UpdatePassword] Password updated successfully')
+        setMessage({
+          type: 'success',
+          text: 'Password updated successfully! Redirecting to login...'
+        })
 
-          // Redirect to login after 2 seconds
-          setTimeout(() => {
-            router.push('/auth/login')
-          }, 2000)
-        }
+        // Redirect to login after 2 seconds
+        setTimeout(() => {
+          router.push('/auth/login')
+        }, 2000)
       } else {
         // For regular password change (when logged in)
         const { error } = await supabase.auth.updateUser({

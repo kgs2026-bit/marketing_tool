@@ -10,6 +10,7 @@ export default function UpdatePasswordPage() {
   const [currentPassword, setCurrentPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [isResetFlow, setIsResetFlow] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -30,19 +31,18 @@ export default function UpdatePasswordPage() {
 
       console.log('[UpdatePassword] Session found:', session)
 
-      // For password reset flow, we expect a session with the reset token
-      if (!session) {
-        // Check if there's a token in the URL
-        const hash = window.location.hash
-        if (hash && hash.includes('type=recovery')) {
-          // The user needs to complete the recovery flow
-          console.log('[UpdatePassword] Found recovery token in URL')
-        } else {
-          setMessage({
-            type: 'error',
-            text: 'Invalid or expired reset link. Please request a new one.'
-          })
-        }
+      // Check if there's a token in the URL (password reset flow)
+      const hash = window.location.hash
+      const isResetFlowFromUrl = hash && hash.includes('type=recovery')
+
+      if (isResetFlowFromUrl) {
+        setIsResetFlow(true)
+        console.log('[UpdatePassword] Found recovery token in URL')
+      } else if (!session) {
+        setMessage({
+          type: 'error',
+          text: 'Invalid or expired reset link. Please request a new one.'
+        })
       }
     }
     checkSession()
@@ -65,7 +65,7 @@ export default function UpdatePasswordPage() {
       return
     }
 
-    if (!currentPassword) {
+    if (!isResetFlow && !currentPassword) {
       setMessage({ type: 'error', text: 'Current password is required' })
       setLoading(false)
       return
@@ -74,10 +74,14 @@ export default function UpdatePasswordPage() {
     try {
       console.log('[UpdatePassword] Attempting to update password...')
 
-      // When using a reset token, we should use the confirmPassword method
-      const { error } = await supabase.auth.updateUser({
-        password: password
-      })
+      // For password reset flow, we need to use the update method with the recovery token
+      const { error } = isResetFlow
+        ? await supabase.auth.updateUser({ password })
+        : await supabase.auth.updateUser({
+            password: password,
+            // For regular password change, include current password
+            data: { currentPassword }
+          })
 
       if (error) {
         console.error('[UpdatePassword] Error updating password:', error)
@@ -128,22 +132,24 @@ export default function UpdatePasswordPage() {
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="current-password" className="sr-only">
-                Current Password
-              </label>
-              <input
-                id="current-password"
-                name="current-password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-base bg-white dark:bg-gray-800"
-                placeholder="Current password"
-              />
-            </div>
+            {!isResetFlow && (
+              <div>
+                <label htmlFor="current-password" className="sr-only">
+                  Current Password
+                </label>
+                <input
+                  id="current-password"
+                  name="current-password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-base bg-white dark:bg-gray-800"
+                  placeholder="Current password"
+                />
+              </div>
+            )}
             <div>
               <label htmlFor="password" className="sr-only">
                 New Password
@@ -190,7 +196,7 @@ export default function UpdatePasswordPage() {
               disabled={loading}
               className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
             >
-              {loading ? 'Updating...' : 'Update Password'}
+              {loading ? 'Updating...' : (isResetFlow ? 'Reset Password' : 'Update Password')}
             </button>
           </div>
         </form>

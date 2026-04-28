@@ -14,21 +14,22 @@ export default function UpdatePasswordPage() {
   const supabase = createClient()
 
   useEffect(() => {
-    // Check if we have a recovery token in the URL
+    // Check if we have a recovery token in the URL hash
     const hash = window.location.hash
     const isResetFlowFromUrl = hash && hash.includes('type=recovery')
-    const urlParams = new URLSearchParams(window.location.search)
-    const accessToken = urlParams.get('access_token')
 
-    if (isResetFlowFromUrl || accessToken) {
+    if (isResetFlowFromUrl) {
       setIsResetFlow(true)
-      console.log('[UpdatePassword] Found recovery token in URL')
+      console.log('[UpdatePassword] Found recovery token in URL hash:', hash)
 
       // Set up a listener for auth state changes
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        console.log('[UpdatePassword] Auth state changed:', event, session ? 'Session exists' : 'No session')
         if (event === 'PASSWORD_RECOVERY' && session) {
           console.log('[UpdatePassword] Auth state changed to PASSWORD_RECOVERY')
           // We have a valid session from the recovery token
+        } else if (event === 'SIGNED_IN' && session) {
+          console.log('[UpdatePassword] User signed in via recovery token')
         }
       })
 
@@ -36,6 +37,8 @@ export default function UpdatePasswordPage() {
       return () => {
         subscription.unsubscribe()
       }
+    } else {
+      console.log('[UpdatePassword] No recovery token found in URL')
     }
   }, [])
 
@@ -64,13 +67,16 @@ export default function UpdatePasswordPage() {
         // For password reset flow, we need to get the current user first
         const { data: { user }, error: userError } = await supabase.auth.getUser()
 
+        console.log('[UpdatePassword] User check:', user ? 'User found' : 'No user', userError ? `Error: ${userError.message}` : 'No error')
+
         if (userError) {
           console.error('[UpdatePassword] Error getting user:', userError)
           throw new Error('Unable to verify your identity. Please try the reset link again.')
         }
 
         if (!user) {
-          throw new Error('Invalid reset link. Please request a new password reset.')
+          console.error('[UpdatePassword] No user found in session')
+          throw new Error('Invalid or expired reset link. Please request a new password reset.')
         }
 
         // Now update the password
@@ -198,11 +204,11 @@ export default function UpdatePasswordPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-base bg-white dark:bg-gray-800"
+                className={`appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-base bg-white dark:bg-gray-800 ${isResetFlow ? 'rounded-t-md' : ''}`}
                 placeholder="New password (min 6 characters)"
               />
             </div>
-            <div className="relative">
+            <div>
               <label htmlFor="confirm-password" className="sr-only">
                 Confirm New Password
               </label>

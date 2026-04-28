@@ -1,0 +1,488 @@
+ ▐▛███▜▌   Claude Code v2.1.121
+▝▜█████▛▘  z-ai/glm4.7 · API Usage Billing
+  ▘▘ ▝▝    ~\Desktop\tool\email-marketing-tool
+
+> able to login but no data visible as contacts, campaigns nothing is showing,  
+  everything is blank please fix and push it on git                             
+
+● Let me investigate the data fetching issue. I'll start by exploring the
+  codebase structure and checking how data is loaded.
+
+● Grepglob**/*.{ts,tsx}output_modefiles_with_matchespatterncontacts|campaigns
+
+  Searched for 3 patterns (ctrl+o to expand)
+
+● Readfile_pathC:\Users\IBALL\Desktop\tool\email-marketing-tool\src\app\dashboar
+  d\campaigns\page.tsx
+
+  Read 2 files (ctrl+o to expand)
+
+● Readfile_pathC:\Users\IBALL\Desktop\tool\email-marketing-tool\src\components\d
+  ashboard-stats.tsx
+
+  Read 2 files (ctrl+o to expand)
+
+● Readfile_pathC:\Users\IBALL\Desktop\tool\email-marketing-tool\src\lib\supabase
+  \browser-client.ts
+
+  Read 4 files (ctrl+o to expand)
+
+● I found the issue. The client-side components are querying Supabase directly
+  without filtering by user_id, while the API routes correctly filter by
+  user_id. This is likely causing the data to not show up due to RLS policies.
+
+  Let me check the database schema to understand the RLS policies:
+
+● Globpatternsupabase/**/*.sql
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+● I see the issue now. The RLS policies are correctly set up to use auth.uid(),
+  but the client-side components are querying the database directly. The issue
+  is likely that the browser client's session is not being properly recognized
+  by the RLS policies.
+
+  Let me check the session provider:
+
+  Read 2 files (ctrl+o to expand)
+
+● Provider API request failed. (request_id=req_4ff42b7a5c95)
+
+✻ Cooked for 17m 36s
+
+> continue                                                                      
+
+● Let me check the browser client's session handling more carefully:
+
+  Read 1 file (ctrl+o to expand)
+
+● I see the issue. The browser client's custom storage might not be properly
+  retrieving the session. Let me fix this by using the standard Supabase client
+  with proper session handling:
+
+● Update(src\lib\supabase\browser-client.ts)
+  ⎿  Added 27 lines, removed 151 lines
+        2  
+        3  import { createClient as createSupabaseClient, type SupabaseCl
+           ient } from '@supabase/supabase-js'
+        4  
+        5 -// Create a custom storage that syncs between localStorage and
+          - cookies for SSR support                                      
+        6 -function createCookieSyncStorage() {                          
+        7 -  return {                                                    
+        8 -    getItem: (key: string): string | null => {                
+        9 -      if (typeof window === 'undefined') return null          
+       10 -                                                              
+       11 -      try {                                                   
+       12 -        const localValue = localStorage.getItem(key)          
+       13 -        if (localValue) return localValue                     
+       14 -      } catch (e) {                                           
+       15 -        // localStorage might be disabled                     
+       16 -      }                                                       
+       17 -                                                              
+       18 -      const cookies = document.cookie                         
+       19 -        .split(';')                                           
+       20 -        .map((c) => c.trim())                                 
+       21 -        .filter(Boolean)                                      
+       22 -                                                              
+       23 -      for (const cookie of cookies) {                         
+       24 -        const [name, value] = cookie.split('=')               
+       25 -        if (name === key) return decodeURIComponent(value)    
+       26 -      }                                                       
+       27 -                                                              
+       28 -      return null                                             
+       29 -    },                                                        
+       30 -    setItem: (key: string, value: string): void => {          
+       31 -      if (typeof window === 'undefined') return               
+       32 -                                                              
+       33 -      try {                                                   
+       34 -        localStorage.setItem(key, value)                      
+       35 -      } catch (e) {                                           
+       36 -        // ignore                                             
+       37 -      }                                                       
+       38 -                                                              
+       39 -      const expires = new Date()                              
+       40 -      expires.setFullYear(expires.getFullYear() + 1)          
+       41 -      const cookieString = `${key}=${encodeURIComponent(value)
+          -}; path=/; expires=${expires.toUTCString()}`                  
+       42 -      document.cookie = cookieString                          
+       43 -    },                                                        
+       44 -    removeItem: (key: string): void => {                      
+       45 -      if (typeof window === 'undefined') return               
+       46 -                                                              
+       47 -      try {                                                   
+       48 -        localStorage.removeItem(key)                          
+       49 -      } catch (e) {                                           
+       50 -        // ignore                                             
+       51 -      }                                                       
+       52 -                                                              
+       53 -      document.cookie = `${key}=; path=/; max-age=0`          
+       54 -    },                                                        
+       55 -  }                                                           
+       56 -}                                                             
+       57 -                                                              
+       58 -// Wrapper to detect if fetch is being blocked by extensions  
+       59 -function createBlockingDetection() {                          
+       60 -  let isBlocked = false                                       
+       61 -  let isInitialized = false                                   
+       62 -                                                              
+       63 -  const init = () => {                                        
+       64 -    if (isInitialized) return isBlocked                       
+       65 -                                                              
+       66 -    isInitialized = true                                      
+       67 -                                                              
+       68 -    // Quick test: does fetch to supabase work?               
+       69 -    try {                                                     
+       70 -      const test = fetch('https://acwwxlneuqcpqdntdbnj.supabas
+          -e.co/auth/v1/health', {                                       
+       71 -        method: 'HEAD',                                       
+       72 -        mode: 'no-cors', // don't trigger CORS preflight      
+       73 -      })                                                      
+       74 -      // If fetch is overridden badly, it might throw or retur
+          -n then reject                                                 
+       75 -      test.catch(() => { isBlocked = true })                  
+       76 -    } catch {                                                 
+       77 -      isBlocked = true                                        
+       78 -    }                                                         
+       79 -                                                              
+       80 -    return isBlocked                                          
+       81 -  }                                                           
+       82 -                                                              
+       83 -  return { init, isBlocked: () => isBlocked }                 
+       84 -}                                                             
+       85 -                                                              
+       86 -// Custom storage that syncs with server-set cookies          
+       87 -function createCustomStorage() {                              
+       88 -  return {                                                    
+       89 -    getItem: (key: string): string | null => {                
+       90 -      if (typeof window === 'undefined') return null          
+       91 -                                                              
+       92 -      // First try localStorage                               
+       93 -      try {                                                   
+       94 -        const localValue = localStorage.getItem(`sb-${key}`)  
+       95 -        if (localValue) return localValue                     
+       96 -      } catch (e) {                                           
+       97 -        // localStorage might be disabled                     
+       98 -      }                                                       
+       99 -                                                              
+      100 -      // Try both cookie formats: sb-auth-token and sb-[url]-a
+          -uth-token                                                     
+      101 -      const cookieNames = [                                   
+      102 -        `sb-${key}`,                                          
+      103 -        `sb-${process.env.NEXT_PUBLIC_SUPABASE_URL!.split('//'
+          -)[1].replace('.', '-')}-${key}`                               
+      104 -      ]                                                       
+      105 -                                                              
+      106 -      for (const cookieName of cookieNames) {                 
+      107 -        const cookies = document.cookie                       
+      108 -          .split(';')                                         
+      109 -          .map((c) => c.trim())                               
+      110 -          .filter(Boolean)                                    
+      111 -                                                              
+      112 -        for (const cookie of cookies) {                       
+      113 -          const [name, value] = cookie.split('=')             
+      114 -          if (name === cookieName) {                          
+      115 -            console.log(`[storage] Found cookie: ${cookieName}
+          -`)                                                            
+      116 -            return decodeURIComponent(value)                  
+      117 -          }                                                   
+      118 -        }                                                     
+      119 -      }                                                       
+      120 -                                                              
+      121 -      console.log(`[storage] Cookie not found for key: ${key}`
+          -)                                                             
+      122 -      return null                                             
+      123 -    },                                                        
+      124 -    setItem: (key: string, value: string): void => {          
+      125 -      if (typeof window === 'undefined') return               
+      126 -                                                              
+      127 -      try {                                                   
+      128 -        localStorage.setItem(`sb-${key}`, value)              
+      129 -      } catch (e) {                                           
+      130 -        // ignore                                             
+      131 -      }                                                       
+      132 -                                                              
+      133 -      const expires = new Date()                              
+      134 -      expires.setFullYear(expires.getFullYear() + 1)          
+      135 -      const cookieName = `sb-${key}`                          
+      136 -      const cookieString = `${cookieName}=${encodeURIComponent
+          -(value)}; path=/; expires=${expires.toUTCString()}`           
+      137 -      document.cookie = cookieString                          
+      138 -    },                                                        
+      139 -    removeItem: (key: string): void => {                      
+      140 -      if (typeof window === 'undefined') return               
+      141 -                                                              
+      142 -      try {                                                   
+      143 -        localStorage.removeItem(`sb-${key}`)                  
+      144 -      } catch (e) {                                           
+      145 -        // ignore                                             
+      146 -      }                                                       
+      147 -                                                              
+      148 -      const cookieName = `sb-${key}`                          
+      149 -      document.cookie = `${cookieName}=; path=/; max-age=0`   
+      150 -    },                                                        
+      151 -  }                                                           
+      152 -}                                                             
+      153 -                                                              
+        5  let cachedClient: SupabaseClient | null = null
+        6  
+        7  export const createClient = (): SupabaseClient => {
+     ...
+       26      throw new Error(msg)
+       27    }
+       28  
+      178 -  console.log('[browser-client] Creating new Supabase client w
+          -ith custom storage')                                          
+       29 +  console.log('[browser-client] Creating new Supabase client')
+       30  
+       31    try {
+       32      const supabase = createSupabaseClient(url, anonKey, {
+     ...
+       34          persistSession: true,
+       35          autoRefreshToken: true,
+       36          detectSessionInUrl: true,
+      186 -        storage: createCustomStorage(),                       
+       37 +        storage: {                                            
+       38 +          getItem: (key: string) => {                         
+       39 +            if (typeof window === 'undefined') return null    
+       40 +            try {                                             
+       41 +              return localStorage.getItem(key)                
+       42 +            } catch (e) {                                     
+       43 +              return null                                     
+       44 +            }                                                 
+       45 +          },                                                  
+       46 +          setItem: (key: string, value: string) => {          
+       47 +            if (typeof window === 'undefined') return         
+       48 +            try {                                             
+       49 +              localStorage.setItem(key, value)                
+       50 +            } catch (e) {                                     
+       51 +              // ignore                                       
+       52 +            }                                                 
+       53 +          },                                                  
+       54 +          removeItem: (key: string) => {                      
+       55 +            if (typeof window === 'undefined') return         
+       56 +            try {                                             
+       57 +              localStorage.removeItem(key)                    
+       58 +            } catch (e) {                                     
+       59 +              // ignore                                       
+       60 +            }                                                 
+       61 +          },                                                  
+       62 +        },                                                    
+       63          flowType: 'pkce',
+       64        },
+       65        global: {
+
+● Now let me update the dashboard components to properly handle the session and
+  fetch data:
+
+● Update(src\components\dashboard-stats.tsx)  ⎿  Added 9 lines
+      54        }
+      55  
+      56        try {
+      57 +        console.log('[DashboardStats] Fetching stats...')      
+      58          // Get total contacts
+      59          const { count: contactsCount } = await supabase
+      60            .from('contacts')
+     ...
+      82            .select('*', { count: 'exact', head: true })
+      83            .eq('status', 'unsubscribed')
+      84  
+      85 +        console.log('[DashboardStats] Stats fetched:', {       
+      86 +          contactsCount,                                       
+      87 +          campaignsCount,                                      
+      88 +          sentCampaigns,                                       
+      89 +          deliveredCount,                                      
+      90 +          unsubscribedCount,                                   
+      91 +        })                                                     
+      92 +                                                               
+      93          setStats({
+      94            totalContacts: contactsCount || 0,
+      95            totalCampaigns: campaignsCount || 0,
+
+● Update(src\components\recent-campaigns.tsx)
+  ⎿  Added 5 lines, removed 3 lines
+      50        }
+      51  
+      52        try {
+      53 +        console.log('[RecentCampaigns] Fetching campaigns...') 
+      54          const { data, error } = await supabase
+      55            .from('campaigns')
+      56            .select('*')
+     ...
+      58            .limit(5)
+      59  
+      60          if (error) throw error
+      61 +        console.log('[RecentCampaigns] Campaigns fetched:', dat
+         +a)                                                             
+      62          setCampaigns(data || [])
+      63        } catch (error) {
+      64          console.error('Error fetching campaigns:', error)
+     ...
+      111      <div className="bg-card shadow rounded-lg p-6">
+      112        <div className="flex justify-between items-center mb-4">
+      113          <h2 className="text-lg font-medium text-foreground">Re
+           cent Campaigns</h2>
+      112 -        <Link href="/campaigns" className="text-blue-600 dark:
+          -text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 tex
+          -t-sm">                                                        
+      114 +        <Link href="/dashboard/campaigns" className="text-blue
+          +-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-bl
+          +ue-300 text-sm">                                              
+      115            View all →
+      116          </Link>
+      117        </div>
+     ...
+      119          <div className="text-center py-12">
+      120            <p className="text-gray-500 dark:text-gray-400 mb-4"
+           >No campaigns yet</p>
+      121            <Link
+      120 -            href="/campaigns/new"                             
+      122 +            href="/dashboard/campaigns"                       
+      123              className="inline-flex items-center px-4 py-2 bord
+           er border-transparent text-sm font-medium rounded-md text-whit
+           e bg-blue-600 hover:bg-blue-700"
+      124            >
+      125              Create your first campaign
+     ...
+      149                  <tr key={campaign.id}>
+      150                    <td className="px-6 py-4 whitespace-nowrap">
+      151                      <Link
+      150 -                      href={`/campaigns/${campaign.id}`}      
+      152 +                      href={`/dashboard/campaigns/${campaign.i
+          +d}`}                                                          
+      153                        className="text-sm font-medium text-fore
+           ground hover:text-blue-600 dark:hover:text-blue-400"
+      154                      >
+      155                        {campaign.name}
+
+● Update(src\app\dashboard\campaigns\page.tsx)
+  ⎿  Added 71 lines, removed 2 lines
+      14    const [loading, setLoading] = useState(true)
+      15    const [isBuilderOpen, setIsBuilderOpen] = useState(false)
+      16    const [editingCampaign, setEditingCampaign] = useState<any>(n
+          ull)
+      17 +  const [isAuthenticated, setIsAuthenticated] = useState(false)
+      18 +  const [authLoading, setAuthLoading] = useState(true)         
+      19    const supabase = createClient()
+      20  
+      21 +  useEffect(() => {                                            
+      22 +    const checkAuth = async () => {                            
+      23 +      try {                                                    
+      24 +        console.log('[CampaignsPage] Checking auth session...')
+      25 +        const { data: { session }, error } = await supabase.aut
+         +h.getSession()                                                 
+      26 +                                                               
+      27 +        if (error) {                                           
+      28 +          console.error('Auth check error:', error)            
+      29 +        } else {                                               
+      30 +          console.log('[CampaignsPage] Session found:', session
+         +)                                                              
+      31 +          setIsAuthenticated(!!session)                        
+      32 +        }                                                      
+      33 +      } catch (err) {                                          
+      34 +        console.error('Auth check failed:', err)               
+      35 +      } finally {                                              
+      36 +        setAuthLoading(false)                                  
+      37 +      }                                                        
+      38 +    }                                                          
+      39 +                                                               
+      40 +    checkAuth()                                                
+      41 +  }, [supabase])                                               
+      42 +                                                               
+      43    const fetchCampaigns = async () => {
+      44 +    if (!isAuthenticated) {                                    
+      45 +      setLoading(false)                                        
+      46 +      return                                                   
+      47 +    }                                                          
+      48 +                                                               
+      49      setLoading(true)
+      50      try {
+      51 +      console.log('[CampaignsPage] Fetching campaigns...')     
+      52        const { data, error } = await supabase
+      53          .from('campaigns')
+      54          .select('*, templates(name, subject), sender_name')
+      55          .order('created_at', { ascending: false })
+      56  
+      57        if (error) throw error
+      58 +      console.log('[CampaignsPage] Campaigns fetched:', data)  
+      59        setCampaigns(data || [])
+      60      } catch (error) {
+      61        console.error('Error fetching campaigns:', error)
+     ...
+      65    }
+      66  
+      67    useEffect(() => {
+      37 -    fetchCampaigns()                                           
+      38 -  }, [])                                                       
+      68 +    if (isAuthenticated) {                                     
+      69 +      fetchCampaigns()                                         
+      70 +    }                                                          
+      71 +  }, [isAuthenticated])                                        
+      72  
+      73    const handleDelete = async (id: string) => {
+      74      const confirmed = await confirm({
+     ...
+      104      fetchCampaigns()
+      105    }
+      106  
+      107 +  if (authLoading) {                                          
+      108 +    return (                                                  
+      109 +      <div className="space-y-6">                             
+      110 +        <div className="flex justify-between items-center">   
+      111 +          <div>                                               
+      112 +            <h1 className="text-3xl font-bold text-foreground"
+          +>Campaigns</h1>                                               
+      113 +            <p className="mt-2 text-gray-600 dark:text-gray-40
+          +0">Create and send email campaigns</p>                        
+      114 +          </div>                                              
+      115 +        </div>                                                
+      116 +        <div className="animate-pulse space-y-4">             
+      117 +          {[1, 2, 3].map((i) => (                             
+      118 +            <div key={i} className="h-16 bg-gray-200 dark:bg-g
+          +ray-800 rounded"></div>                                       
+      119 +          ))}                                                 
+      120 +        </div>                                                
+      121 +      </div>                                                  
+      122 +    )                                                         
+      123 +  }                                                           
+      124 +                                                              
+      125 +  if (!isAuthenticated) {                                     
+      126 +    return (                                                  
+      127 +      <div className="space-y-6">                             
+      128 +        <div className="flex justify-between items-center">   
+      129 +          <div>                                               
+      130 +            <h1 className="text-3xl font-bold text-foreground"
+          +>Campaigns</h1>                                               
+      131 +            <p className="mt-2 text-gray-600 dark:text-gray-40
+          +0">Create and send email campaigns</p>                        
+      132 +          </div>                                              
+      133 +        </div>                                                
+      134 +        <div className="bg-card p-6 rounded-lg shadow">       
+      135 +          <p className="text-center text-gray-500 dark:text-gr
+          +ay-400">                                                      
+      136 +            Please log in to view your campaigns.             
+      137 +          </p>                                                
+      138 +        </div>                                                
+      139 +      </div>                                                  
+      140 +    )                                                         
+      141 +  }                                                           
+      142 +                                                              
+      143    return (
+      144      <div className="space-y-6">
+      145        <div className="flex justify-between items-center">
+
+● Provider API request failed. (request_id=req_3cfaa509880a)
+
+✻ Worked for 12m 57s
+
+> continue                                                                      
+
+● Provider request timed out after 120s. (request_id=req_ca31a4016927)
+
+✻ Baked for 3m 26s
+
+> continue                                                                      
+
+● Provider request timed out after 120s. (request_id=req_3f25ebab460b)
+
+✻ Churned for 3m 0s

@@ -46,6 +46,26 @@ export default function LoginPage() {
       }
 
       console.log('[LoginPage] Login successful:', data)
+
+      // Set the session in localStorage for the browser client
+      if (data.session && data.user) {
+        const sessionData = {
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+          expires_at: data.session.expires_at,
+          token_type: 'bearer',
+          user: data.user,
+        }
+
+        // Get the Supabase URL to create the correct localStorage key
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+        const urlKey = supabaseUrl.split('//')[1].replace('.', '-')
+        const storageKey = `sb-${urlKey}-auth-token`
+
+        console.log('[LoginPage] Setting session in localStorage:', storageKey)
+        localStorage.setItem(storageKey, JSON.stringify(sessionData))
+      }
+
       // Redirect to dashboard - the session cookies are already set
       router.push('/dashboard')
       router.refresh()

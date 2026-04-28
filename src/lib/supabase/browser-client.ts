@@ -4,6 +4,13 @@ import { createClient as createSupabaseClient, type SupabaseClient } from '@supa
 
 let cachedClient: SupabaseClient | null = null
 
+// Get the storage key format that Supabase expects
+function getStorageKey(key: string): string {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const urlKey = url.split('//')[1].replace('.', '-')
+  return `sb-${urlKey}-${key}`
+}
+
 export const createClient = (): SupabaseClient => {
   console.log('[browser-client] createClient called')
 
@@ -38,25 +45,32 @@ export const createClient = (): SupabaseClient => {
           getItem: (key: string) => {
             if (typeof window === 'undefined') return null
             try {
-              return localStorage.getItem(key)
+              const storageKey = getStorageKey(key)
+              console.log('[browser-client] Getting item:', storageKey)
+              return localStorage.getItem(storageKey)
             } catch (e) {
+              console.error('[browser-client] Error getting item:', e)
               return null
             }
           },
           setItem: (key: string, value: string) => {
             if (typeof window === 'undefined') return
             try {
-              localStorage.setItem(key, value)
+              const storageKey = getStorageKey(key)
+              console.log('[browser-client] Setting item:', storageKey)
+              localStorage.setItem(storageKey, value)
             } catch (e) {
-              // ignore
+              console.error('[browser-client] Error setting item:', e)
             }
           },
           removeItem: (key: string) => {
             if (typeof window === 'undefined') return
             try {
-              localStorage.removeItem(key)
+              const storageKey = getStorageKey(key)
+              console.log('[browser-client] Removing item:', storageKey)
+              localStorage.removeItem(storageKey)
             } catch (e) {
-              // ignore
+              console.error('[browser-client] Error removing item:', e)
             }
           },
         },

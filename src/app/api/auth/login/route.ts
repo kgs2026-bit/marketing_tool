@@ -115,7 +115,8 @@ export async function POST(request: NextRequest) {
         user_metadata: user.user_metadata,
       },
       session: {
-        access_token: accessToken, // We could omit this since cookie is set
+        access_token: accessToken,
+        refresh_token: refreshToken,
         expires_at: session.expires_at,
       },
     })

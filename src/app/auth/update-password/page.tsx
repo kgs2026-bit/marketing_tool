@@ -22,6 +22,16 @@ export default function UpdatePasswordPage() {
       setIsResetFlow(true)
       console.log('[UpdatePassword] Found recovery token in URL hash:', hash)
 
+      // Extract tokens from hash
+      const params = new URLSearchParams(hash.substring(1))
+      const accessToken = params.get('access_token')
+      const refreshToken = params.get('refresh_token')
+
+      console.log('[UpdatePassword] Tokens found:', {
+        accessToken: accessToken ? 'YES' : 'NO',
+        refreshToken: refreshToken ? 'YES' : 'NO'
+      })
+
       // Set up a listener for auth state changes
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         console.log('[UpdatePassword] Auth state changed:', event, session ? 'Session exists' : 'No session')
@@ -64,22 +74,44 @@ export default function UpdatePasswordPage() {
       console.log('[UpdatePassword] Is reset flow:', isResetFlow)
 
       if (isResetFlow) {
-        // For password reset flow, we need to get the current user first
-        const { data: { user }, error: userError } = await supabase.auth.getUser()
+        // For password reset flow, we need to get the session first
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
-        console.log('[UpdatePassword] User check:', user ? 'User found' : 'No user', userError ? `Error: ${userError.message}` : 'No error')
+        console.log('[UpdatePassword] Session check:', session ? 'Session exists' : 'No session', sessionError ? `Error: ${sessionError.message}` : 'No error')
 
-        if (userError) {
-          console.error('[UpdatePassword] Error getting user:', userError)
+        if (sessionError) {
+          console.error('[UpdatePassword] Error getting session:', sessionError)
           throw new Error('Unable to verify your identity. Please try the reset link again.')
         }
 
-        if (!user) {
-          console.error('[UpdatePassword] No user found in session')
-          throw new Error('Invalid or expired reset link. Please request a new password reset.')
+        if (!session) {
+          console.error('[UpdatePassword] No session found')
+
+          // Try to manually exchange the recovery token for a session
+          const hash = window.location.hash
+          const params = new URLSearchParams(hash.substring(1))
+          const accessToken = params.get('access_token')
+          const refreshToken = params.get('refresh_token')
+
+          if (accessToken && refreshToken) {
+            console.log('[UpdatePassword] Attempting to manually exchange tokens for session')
+            const { data: { session: newSession }, error: exchangeError } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken
+            })
+
+            if (exchangeError || !newSession) {
+              console.error('[UpdatePassword] Failed to exchange tokens:', exchangeError)
+              throw new Error('Invalid or expired reset link. Please request a new password reset.')
+            }
+
+            console.log('[UpdatePassword] Session established via manual exchange')
+          } else {
+            throw new Error('Invalid or expired reset link. Please request a new password reset.')
+          }
         }
 
-        // Now update the password
+        // Now update the password using the session
         const { error } = await supabase.auth.updateUser({
           password
         })
@@ -88,7 +120,13 @@ export default function UpdatePasswordPage() {
           console.error('[UpdatePassword] Reset error:', error)
 
           // Handle specific error cases
-          if (error.message.includes('email') || error.message.includes('phone')) {
+          if (error.message.includes('reauthentication') || error.message.includes('re-auth')) {
+            setMessage({
+              type: 'error',
+              text: 'Session expired. Please request a new password reset from the email.'
+            })
+            return
+          } else if (error.message.includes('email') || error.message.includes('phone')) {
             setMessage({
               type: 'error',
               text: 'Session expired. Please request a new password reset from the email.'

@@ -50,6 +50,7 @@ export default function RecentCampaigns() {
       }
 
       try {
+        console.log('[RecentCampaigns] Fetching campaigns...')
         const { data, error } = await supabase
           .from('campaigns')
           .select('*')
@@ -57,6 +58,7 @@ export default function RecentCampaigns() {
           .limit(5)
 
         if (error) throw error
+        console.log('[RecentCampaigns] Campaigns fetched:', data)
         setCampaigns(data || [])
       } catch (error) {
         console.error('Error fetching campaigns:', error)
@@ -109,7 +111,7 @@ export default function RecentCampaigns() {
     <div className="bg-card shadow rounded-lg p-6">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-medium text-foreground">Recent Campaigns</h2>
-        <Link href="/campaigns" className="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 text-sm">
+        <Link href="/dashboard/campaigns" className="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 text-sm">
           View all →
         </Link>
       </div>
@@ -117,7 +119,7 @@ export default function RecentCampaigns() {
         <div className="text-center py-12">
           <p className="text-gray-500 dark:text-gray-400 mb-4">No campaigns yet</p>
           <Link
-            href="/campaigns/new"
+            href="/dashboard/campaigns"
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
           >
             Create your first campaign
@@ -147,7 +149,7 @@ export default function RecentCampaigns() {
                 <tr key={campaign.id}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <Link
-                      href={`/campaigns/${campaign.id}`}
+                      href={`/dashboard/campaigns/${campaign.id}`}
                       className="text-sm font-medium text-foreground hover:text-blue-600 dark:hover:text-blue-400"
                     >
                       {campaign.name}

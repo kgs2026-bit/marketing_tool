@@ -54,6 +54,7 @@ export default function DashboardStats() {
       }
 
       try {
+        console.log('[DashboardStats] Fetching stats...')
         // Get total contacts
         const { count: contactsCount } = await supabase
           .from('contacts')
@@ -80,6 +81,14 @@ export default function DashboardStats() {
           .from('contacts')
           .select('*', { count: 'exact', head: true })
           .eq('status', 'unsubscribed')
+
+        console.log('[DashboardStats] Stats fetched:', {
+          contactsCount,
+          campaignsCount,
+          sentCampaigns,
+          deliveredCount,
+          unsubscribedCount,
+        })
 
         setStats({
           totalContacts: contactsCount || 0,

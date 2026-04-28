@@ -2,155 +2,6 @@
 
 import { createClient as createSupabaseClient, type SupabaseClient } from '@supabase/supabase-js'
 
-// Create a custom storage that syncs between localStorage and cookies for SSR support
-function createCookieSyncStorage() {
-  return {
-    getItem: (key: string): string | null => {
-      if (typeof window === 'undefined') return null
-
-      try {
-        const localValue = localStorage.getItem(key)
-        if (localValue) return localValue
-      } catch (e) {
-        // localStorage might be disabled
-      }
-
-      const cookies = document.cookie
-        .split(';')
-        .map((c) => c.trim())
-        .filter(Boolean)
-
-      for (const cookie of cookies) {
-        const [name, value] = cookie.split('=')
-        if (name === key) return decodeURIComponent(value)
-      }
-
-      return null
-    },
-    setItem: (key: string, value: string): void => {
-      if (typeof window === 'undefined') return
-
-      try {
-        localStorage.setItem(key, value)
-      } catch (e) {
-        // ignore
-      }
-
-      const expires = new Date()
-      expires.setFullYear(expires.getFullYear() + 1)
-      const cookieString = `${key}=${encodeURIComponent(value)}; path=/; expires=${expires.toUTCString()}`
-      document.cookie = cookieString
-    },
-    removeItem: (key: string): void => {
-      if (typeof window === 'undefined') return
-
-      try {
-        localStorage.removeItem(key)
-      } catch (e) {
-        // ignore
-      }
-
-      document.cookie = `${key}=; path=/; max-age=0`
-    },
-  }
-}
-
-// Wrapper to detect if fetch is being blocked by extensions
-function createBlockingDetection() {
-  let isBlocked = false
-  let isInitialized = false
-
-  const init = () => {
-    if (isInitialized) return isBlocked
-
-    isInitialized = true
-
-    // Quick test: does fetch to supabase work?
-    try {
-      const test = fetch('https://acwwxlneuqcpqdntdbnj.supabase.co/auth/v1/health', {
-        method: 'HEAD',
-        mode: 'no-cors', // don't trigger CORS preflight
-      })
-      // If fetch is overridden badly, it might throw or return then reject
-      test.catch(() => { isBlocked = true })
-    } catch {
-      isBlocked = true
-    }
-
-    return isBlocked
-  }
-
-  return { init, isBlocked: () => isBlocked }
-}
-
-// Custom storage that syncs with server-set cookies
-function createCustomStorage() {
-  return {
-    getItem: (key: string): string | null => {
-      if (typeof window === 'undefined') return null
-
-      // First try localStorage
-      try {
-        const localValue = localStorage.getItem(`sb-${key}`)
-        if (localValue) return localValue
-      } catch (e) {
-        // localStorage might be disabled
-      }
-
-      // Try both cookie formats: sb-auth-token and sb-[url]-auth-token
-      const cookieNames = [
-        `sb-${key}`,
-        `sb-${process.env.NEXT_PUBLIC_SUPABASE_URL!.split('//')[1].replace('.', '-')}-${key}`
-      ]
-
-      for (const cookieName of cookieNames) {
-        const cookies = document.cookie
-          .split(';')
-          .map((c) => c.trim())
-          .filter(Boolean)
-
-        for (const cookie of cookies) {
-          const [name, value] = cookie.split('=')
-          if (name === cookieName) {
-            console.log(`[storage] Found cookie: ${cookieName}`)
-            return decodeURIComponent(value)
-          }
-        }
-      }
-
-      console.log(`[storage] Cookie not found for key: ${key}`)
-      return null
-    },
-    setItem: (key: string, value: string): void => {
-      if (typeof window === 'undefined') return
-
-      try {
-        localStorage.setItem(`sb-${key}`, value)
-      } catch (e) {
-        // ignore
-      }
-
-      const expires = new Date()
-      expires.setFullYear(expires.getFullYear() + 1)
-      const cookieName = `sb-${key}`
-      const cookieString = `${cookieName}=${encodeURIComponent(value)}; path=/; expires=${expires.toUTCString()}`
-      document.cookie = cookieString
-    },
-    removeItem: (key: string): void => {
-      if (typeof window === 'undefined') return
-
-      try {
-        localStorage.removeItem(`sb-${key}`)
-      } catch (e) {
-        // ignore
-      }
-
-      const cookieName = `sb-${key}`
-      document.cookie = `${cookieName}=; path=/; max-age=0`
-    },
-  }
-}
-
 let cachedClient: SupabaseClient | null = null
 
 export const createClient = (): SupabaseClient => {
@@ -175,7 +26,7 @@ export const createClient = (): SupabaseClient => {
     throw new Error(msg)
   }
 
-  console.log('[browser-client] Creating new Supabase client with custom storage')
+  console.log('[browser-client] Creating new Supabase client')
 
   try {
     const supabase = createSupabaseClient(url, anonKey, {
@@ -183,7 +34,32 @@ export const createClient = (): SupabaseClient => {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        storage: createCustomStorage(),
+        storage: {
+          getItem: (key: string) => {
+            if (typeof window === 'undefined') return null
+            try {
+              return localStorage.getItem(key)
+            } catch (e) {
+              return null
+            }
+          },
+          setItem: (key: string, value: string) => {
+            if (typeof window === 'undefined') return
+            try {
+              localStorage.setItem(key, value)
+            } catch (e) {
+              // ignore
+            }
+          },
+          removeItem: (key: string) => {
+            if (typeof window === 'undefined') return
+            try {
+              localStorage.removeItem(key)
+            } catch (e) {
+              // ignore
+            }
+          },
+        },
         flowType: 'pkce',
       },
       global: {

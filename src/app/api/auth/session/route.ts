@@ -1,34 +1,61 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { createClient } from '@supabase/supabase-js'
 
 export async function GET() {
   try {
     const cookieStore = await cookies()
-    const accessToken = cookieStore.get('sb-auth-token')?.value
 
-    if (!accessToken) {
+    // Get the session cookie
+    const sessionCookie = cookieStore.get('sb-auth-token')?.value
+
+    if (!sessionCookie) {
       return NextResponse.json({ user: null }, { status: 200 })
     }
 
     // Try to parse the session from the cookie
     let sessionData
     try {
-      sessionData = JSON.parse(accessToken)
+      sessionData = JSON.parse(sessionCookie)
     } catch {
-      // If it's not JSON, it's just the token
-      sessionData = { access_token: accessToken }
+      // If it's not JSON, it's just the access token
+      sessionData = { access_token: sessionCookie }
     }
 
-    // You could also validate the token with Supabase here
-    // For now, return a basic user object
+    // Validate the session with Supabase
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('[api/auth/session] Missing environment variables')
+      return NextResponse.json({ user: null }, { status: 200 })
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    })
+
+    // Get the user from the access token
+    const { data: { user }, error } = await supabase.auth.getUser(sessionData.access_token)
+
+    if (error || !user) {
+      console.error('[api/auth/session] Invalid session:', error?.message)
+      return NextResponse.json({ user: null }, { status: 200 })
+    }
+
     return NextResponse.json({
-      user: sessionData.user || {
-        email: 'user@example.com', // This would normally come from the token
-        id: 'user-id' // This would normally come from the token
+      user: {
+        id: user.id,
+        email: user.email,
+        user_metadata: user.user_metadata,
       }
     })
   } catch (error) {
-    console.error('Session API error:', error)
+    console.error('[api/auth/session] Error:', error)
     return NextResponse.json({ user: null }, { status: 200 })
   }
 }

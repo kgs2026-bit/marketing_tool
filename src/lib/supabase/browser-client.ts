@@ -11,6 +11,71 @@ function getStorageKey(key: string): string {
   return `sb-${urlKey}-${key}`
 }
 
+// Custom storage that reads from cookies and writes to localStorage
+function createCustomStorage() {
+  return {
+    getItem: (key: string) => {
+      if (typeof window === 'undefined') return null
+
+      try {
+        const storageKey = getStorageKey(key)
+
+        // First try to get from localStorage (for backward compatibility)
+        const localStorageValue = localStorage.getItem(storageKey)
+        if (localStorageValue) {
+          console.log('[browser-client] Found session in localStorage:', storageKey)
+          return localStorageValue
+        }
+
+        // If not in localStorage, try to get from document.cookie
+        const cookies = document.cookie.split(';')
+        for (const cookie of cookies) {
+          const [name, value] = cookie.trim().split('=')
+          if (name === 'sb-auth-token' && value) {
+            console.log('[browser-client] Found session in cookie')
+            // Parse the cookie value to get the session data
+            try {
+              const sessionData = JSON.parse(decodeURIComponent(value))
+              return JSON.stringify(sessionData)
+            } catch {
+              // If it's not JSON, return as-is
+              return value
+            }
+          }
+        }
+
+        console.log('[browser-client] No session found in localStorage or cookies')
+        return null
+      } catch (e) {
+        console.error('[browser-client] Error getting item:', e)
+        return null
+      }
+    },
+    setItem: (key: string, value: string) => {
+      if (typeof window === 'undefined') return
+
+      try {
+        const storageKey = getStorageKey(key)
+        console.log('[browser-client] Setting item in localStorage:', storageKey)
+        localStorage.setItem(storageKey, value)
+      } catch (e) {
+        console.error('[browser-client] Error setting item:', e)
+      }
+    },
+    removeItem: (key: string) => {
+      if (typeof window === 'undefined') return
+
+      try {
+        const storageKey = getStorageKey(key)
+        console.log('[browser-client] Removing item from localStorage:', storageKey)
+        localStorage.removeItem(storageKey)
+      } catch (e) {
+        console.error('[browser-client] Error removing item:', e)
+      }
+    },
+  }
+}
+
 export const createClient = (): SupabaseClient => {
   console.log('[browser-client] createClient called')
 
@@ -41,39 +106,7 @@ export const createClient = (): SupabaseClient => {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        storage: {
-          getItem: (key: string) => {
-            if (typeof window === 'undefined') return null
-            try {
-              const storageKey = getStorageKey(key)
-              console.log('[browser-client] Getting item:', storageKey)
-              return localStorage.getItem(storageKey)
-            } catch (e) {
-              console.error('[browser-client] Error getting item:', e)
-              return null
-            }
-          },
-          setItem: (key: string, value: string) => {
-            if (typeof window === 'undefined') return
-            try {
-              const storageKey = getStorageKey(key)
-              console.log('[browser-client] Setting item:', storageKey)
-              localStorage.setItem(storageKey, value)
-            } catch (e) {
-              console.error('[browser-client] Error setting item:', e)
-            }
-          },
-          removeItem: (key: string) => {
-            if (typeof window === 'undefined') return
-            try {
-              const storageKey = getStorageKey(key)
-              console.log('[browser-client] Removing item:', storageKey)
-              localStorage.removeItem(storageKey)
-            } catch (e) {
-              console.error('[browser-client] Error removing item:', e)
-            }
-          },
-        },
+        storage: createCustomStorage(),
         flowType: 'pkce',
       },
       global: {

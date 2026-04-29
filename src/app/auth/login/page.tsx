@@ -10,7 +10,6 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
-  const [debugInfo, setDebugInfo] = useState<string | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -47,26 +46,8 @@ export default function LoginPage() {
 
       console.log('[LoginPage] Login successful:', data)
 
-      // Set the session in localStorage for the browser client
-      if (data.session && data.user) {
-        const sessionData = {
-          access_token: data.session.access_token,
-          refresh_token: data.session.refresh_token,
-          expires_at: data.session.expires_at,
-          token_type: 'bearer',
-          user: data.user,
-        }
-
-        // Get the Supabase URL to create the correct localStorage key
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-        const urlKey = supabaseUrl.split('//')[1].replace('.', '-')
-        const storageKey = `sb-${urlKey}-auth-token`
-
-        console.log('[LoginPage] Setting session in localStorage:', storageKey)
-        localStorage.setItem(storageKey, JSON.stringify(sessionData))
-      }
-
-      // Redirect to dashboard - the session cookies are already set
+      // The server has already set the cookies, so we just need to redirect
+      // No need to set localStorage since the browser client will read from cookies
       router.push('/dashboard')
       router.refresh()
     } catch (err: any) {
@@ -146,12 +127,6 @@ export default function LoginPage() {
           {error && (
             <div className="text-red-600 dark:text-red-400 text-sm text-center bg-red-50 dark:bg-red-900/20 p-3 rounded-md">
               {error}
-            </div>
-          )}
-
-          {debugInfo && (
-            <div className="text-yellow-600 dark:text-yellow-400 text-sm text-center bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-md">
-              <strong>Debug:</strong> {debugInfo}
             </div>
           )}
 

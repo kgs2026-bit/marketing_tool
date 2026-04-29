@@ -69,23 +69,17 @@ export async function POST(request: NextRequest) {
     const refreshToken = session.refresh_token
     const expiresAt = new Date(session.expires_at! * 1000)
 
-    // Set the access token cookie in standard format
-    cookieStore.set('sb-auth-token', accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      expires: expiresAt,
-      path: '/',
-    })
-
-    // Set the session cookie that Supabase browser client expects
-    cookieStore.set('sb-auth-token', JSON.stringify({
+    // Create the session data object
+    const sessionData = {
       access_token: accessToken,
       refresh_token: refreshToken,
       expires_at: session.expires_at,
       token_type: 'bearer',
       user: user,
-    }), {
+    }
+
+    // Set the session cookie that Supabase browser client expects
+    cookieStore.set('sb-auth-token', JSON.stringify(sessionData), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -93,7 +87,7 @@ export async function POST(request: NextRequest) {
       path: '/',
     })
 
-    // Also set refresh token cookie in standard format
+    // Also set refresh token cookie separately
     if (refreshToken) {
       cookieStore.set('sb-refresh-token', refreshToken, {
         httpOnly: true,
@@ -103,9 +97,6 @@ export async function POST(request: NextRequest) {
         path: '/',
       })
     }
-
-    // Set user data in a non-httpOnly cookie for client access (optional)
-    // Or we could return user data in the response
 
     return NextResponse.json({
       success: true,

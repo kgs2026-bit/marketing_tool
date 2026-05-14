@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/browser-client'
 
 interface SessionProviderProps {
   children: React.ReactNode
@@ -13,18 +12,13 @@ export default function SessionProvider({ children }: SessionProviderProps) {
 
   useEffect(() => {
     const checkSession = async () => {
-      const supabase = createClient()
-
       try {
-        const { data: { session }, error } = await supabase.auth.getSession()
-
-        if (error) {
-          console.error('Session check error:', error)
-        } else {
-          setIsAuthenticated(!!session)
-        }
+        const response = await fetch('/api/auth/session')
+        const data = await response.json()
+        setIsAuthenticated(!!data.user)
       } catch (err) {
         console.error('Session check failed:', err)
+        setIsAuthenticated(false)
       } finally {
         setLoading(false)
       }

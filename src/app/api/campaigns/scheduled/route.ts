@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createServerClient } from '@/lib/supabase/server-client'
 import { start } from 'workflow/api'
 import { sendCampaignWorkflow } from '@/workflows/campaign-send.workflow'
 
 export async function GET(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
+  const supabase = await createServerClient()
 
   // This endpoint should be protected with a secret key for cron jobs
   const secret = request.nextUrl.searchParams.get('secret')

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createServerClient } from '@/lib/supabase/server-client'
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     const event = body.event || body.type
     const data = body.data || body
 
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createServerClient()
 
     // Extract message ID and recipient from event data
     const messageId = data.message_id || data.id

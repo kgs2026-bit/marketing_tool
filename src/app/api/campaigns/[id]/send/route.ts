@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createServerClient } from '@/lib/supabase/server-client'
 import { start } from 'workflow/api'
 import { sendCampaignWorkflow } from '@/workflows/campaign-send.workflow'
 
@@ -8,7 +8,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const supabase = await createSupabaseServerClient()
+  const supabase = await createServerClient()
 
   // Check for cron secret (for scheduled campaigns)
   const cronSecret = request.headers.get('x-cron-secret')
